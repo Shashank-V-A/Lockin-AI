@@ -1,16 +1,16 @@
 "use client";
 
-import { useTheme } from "next-themes";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useTheme } from "@/components/theme-provider";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { PageHeader } from "@/components/layout/page-header";
 import { useSession } from "next-auth/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 /** User settings page. */
 export function SettingsContent() {
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const { data: session } = useSession();
 
   const initials = session?.user?.name
@@ -22,46 +22,47 @@ export function SettingsContent() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">Manage your account preferences.</p>
-      </div>
+      <PageHeader
+        title="Settings"
+        description="Manage your account and appearance preferences."
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Profile</CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-center gap-4">
-          <Avatar className="h-12 w-12">
+      <div className="surface-card p-5">
+        <h2 className="text-sm font-semibold tracking-tight">Profile</h2>
+        <div className="mt-4 flex items-center gap-4">
+          <Avatar className="h-11 w-11 ring-2 ring-border">
             <AvatarImage src={session?.user?.image ?? undefined} />
-            <AvatarFallback>{initials}</AvatarFallback>
+            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
           </Avatar>
           <div>
             <p className="font-medium">{session?.user?.name}</p>
             <p className="text-sm text-muted-foreground">{session?.user?.email}</p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Appearance</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <div className="surface-card p-5">
+        <h2 className="text-sm font-semibold tracking-tight">Appearance</h2>
+        <div className="mt-4 space-y-4">
           <div className="flex items-center justify-between">
-            <Label htmlFor="dark-mode">Dark mode</Label>
+            <div>
+              <Label htmlFor="dark-mode" className="text-sm font-medium">
+                Dark mode
+              </Label>
+              <p className="text-xs text-muted-foreground">Switch between light and dark themes</p>
+            </div>
             <Switch
               id="dark-mode"
-              checked={theme === "dark"}
+              checked={resolvedTheme === "dark"}
               onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
             />
           </div>
           <Separator />
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs leading-relaxed text-muted-foreground">
             Authentication is managed via Google OAuth. No password settings available.
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

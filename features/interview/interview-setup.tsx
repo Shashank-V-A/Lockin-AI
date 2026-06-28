@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { startInterview } from "@/actions/interview-actions";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -49,13 +48,16 @@ export function InterviewSetup() {
   };
 
   return (
-    <Card className="max-w-lg">
-      <CardHeader>
-        <CardTitle className="text-base">Configure Interview</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className="surface-card max-w-lg">
+      <div className="border-b border-border px-5 py-4">
+        <h2 className="text-sm font-semibold tracking-tight">Configure Interview</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Choose company, role, and difficulty level
+        </p>
+      </div>
+      <div className="space-y-4 p-5">
         <div className="space-y-2">
-          <Label>Company</Label>
+          <Label className="text-xs text-muted-foreground">Company</Label>
           <Select value={company} onValueChange={setCompany}>
             <SelectTrigger><SelectValue placeholder="Select company" /></SelectTrigger>
             <SelectContent>
@@ -67,7 +69,7 @@ export function InterviewSetup() {
         </div>
 
         <div className="space-y-2">
-          <Label>Role</Label>
+          <Label className="text-xs text-muted-foreground">Role</Label>
           <Select value={role} onValueChange={setRole}>
             <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
             <SelectContent>
@@ -79,7 +81,7 @@ export function InterviewSetup() {
         </div>
 
         <div className="space-y-2">
-          <Label>Experience Level</Label>
+          <Label className="text-xs text-muted-foreground">Experience Level</Label>
           <Select value={experience} onValueChange={setExperience}>
             <SelectTrigger><SelectValue placeholder="Select level" /></SelectTrigger>
             <SelectContent>
@@ -91,7 +93,7 @@ export function InterviewSetup() {
         </div>
 
         <div className="space-y-2">
-          <Label>Difficulty</Label>
+          <Label className="text-xs text-muted-foreground">Difficulty</Label>
           <Select value={difficulty} onValueChange={setDifficulty}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -102,11 +104,11 @@ export function InterviewSetup() {
           </Select>
         </div>
 
-        <Button className="w-full" onClick={handleStart} disabled={loading}>
+        <Button variant="accent" className="w-full" onClick={handleStart} disabled={loading}>
           {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Start Interview
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

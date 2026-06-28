@@ -1,14 +1,14 @@
 "use client";
 
-import { useTheme } from "next-themes";
+import { useTheme } from "@/components/theme-provider";
 import { Toaster as Sonner } from "sonner";
 
 /** Theme-aware toast notifications. */
 export function Toaster(props: React.ComponentProps<typeof Sonner>) {
-  const { theme = "system" } = useTheme();
+  const { resolvedTheme = "light" } = useTheme();
   return (
     <Sonner
-      theme={theme as "light" | "dark" | "system"}
+      theme={resolvedTheme}
       className="toaster group"
       toastOptions={{
         classNames: {

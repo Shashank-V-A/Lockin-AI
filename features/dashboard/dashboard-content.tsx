@@ -1,7 +1,7 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProgressRing } from "@/components/progress-ring";
 import { AnimatedCounter } from "@/components/animated-counter";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/layout/page-header";
 import Link from "next/link";
 import { ArrowRight, FileText, MessageSquare, Code2, BarChart3 } from "lucide-react";
 import type { DashboardStats } from "@/types/index";
@@ -22,19 +22,17 @@ export function DashboardContent({ stats }: DashboardContentProps) {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Your interview preparation overview.</p>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        description="Your interview preparation overview at a glance."
+      />
 
-      <div className="grid gap-6 lg:grid-cols-4">
-        <Card className="lg:col-span-1">
-          <CardContent className="flex flex-col items-center pt-6">
-            <ProgressRing value={stats.readinessScore} label="Readiness" />
-            <p className="mt-4 text-sm font-medium">Interview Readiness</p>
-            <p className="text-xs text-muted-foreground">Combined score</p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 lg:grid-cols-4">
+        <div className="surface-card flex flex-col items-center px-6 py-8 lg:col-span-1">
+          <ProgressRing value={stats.readinessScore} label="Score" />
+          <p className="mt-5 text-sm font-medium">Interview Readiness</p>
+          <p className="text-xs text-muted-foreground">Combined across all modules</p>
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-3 lg:col-span-3">
           {[
@@ -42,59 +40,55 @@ export function DashboardContent({ stats }: DashboardContentProps) {
             { label: "Interview Avg", value: stats.interviewAvg, suffix: "%" },
             { label: "Coding Avg", value: stats.codingAvg, suffix: "%" },
           ].map((stat) => (
-            <Card key={stat.label}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {stat.label}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-semibold tracking-tight">
-                  <AnimatedCounter value={stat.value} suffix={stat.suffix} />
-                </p>
-              </CardContent>
-            </Card>
+            <div key={stat.label} className="surface-card px-5 py-5">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                {stat.label}
+              </p>
+              <p className="mt-2 text-3xl font-semibold tabular-nums tracking-tight">
+                <AnimatedCounter value={stat.value} suffix={stat.suffix} />
+              </p>
+            </div>
           ))}
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Upcoming Plan</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="surface-card">
+          <div className="border-b border-border px-5 py-4">
+            <h2 className="text-sm font-semibold tracking-tight">Upcoming Plan</h2>
+          </div>
+          <div className="space-y-1 p-2">
             {stats.upcomingPlan.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex items-center justify-between rounded-xl border border-border p-4 transition-colors hover:bg-muted/50"
+                className="group flex items-center justify-between rounded-lg px-3 py-3 transition-colors hover:bg-muted/60"
               >
                 <div>
                   <p className="text-sm font-medium">{item.title}</p>
                   <p className="text-xs text-muted-foreground">{item.description}</p>
                 </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </Link>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Recent Interviews</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="surface-card">
+          <div className="border-b border-border px-5 py-4">
+            <h2 className="text-sm font-semibold tracking-tight">Recent Interviews</h2>
+          </div>
+          <div className="p-2">
             {stats.recentInterviews.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
+              <p className="py-10 text-center text-sm text-muted-foreground">
                 No interviews yet. Start your first mock interview.
               </p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-1">
                 {stats.recentInterviews.map((interview) => (
                   <div
                     key={interview.id}
-                    className="flex items-center justify-between rounded-xl border border-border p-4"
+                    className="flex items-center justify-between rounded-lg px-3 py-3"
                   >
                     <div>
                       <p className="text-sm font-medium">
@@ -105,32 +99,32 @@ export function DashboardContent({ stats }: DashboardContentProps) {
                       </p>
                     </div>
                     {interview.overallScore !== null && (
-                      <Badge variant="secondary">{interview.overallScore}%</Badge>
+                      <Badge variant="secondary" className="tabular-nums">
+                        {interview.overallScore}%
+                      </Badge>
                     )}
                   </div>
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
       <div>
-        <h2 className="mb-4 text-base font-medium">Quick Actions</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <h2 className="mb-3 text-sm font-semibold tracking-tight">Quick Actions</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {quickActions.map((action) => (
             <Link key={action.href} href={action.href}>
-              <Card className="transition-shadow duration-200 hover:shadow-sm">
-                <CardContent className="flex items-center gap-3 pt-6">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
-                    <action.icon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">{action.label}</p>
-                    <p className="text-xs text-muted-foreground">{action.desc}</p>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="surface-card-hover group flex items-center gap-3 p-4">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted transition-colors group-hover:bg-accent/10">
+                  <action.icon className="h-4 w-4 text-foreground" strokeWidth={1.75} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{action.label}</p>
+                  <p className="text-xs text-muted-foreground">{action.desc}</p>
+                </div>
+              </div>
             </Link>
           ))}
         </div>

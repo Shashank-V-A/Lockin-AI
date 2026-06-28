@@ -1,5 +1,6 @@
 import { fetchCodingProblems } from "@/actions/coding-actions";
 import { ProblemList } from "@/features/coding/problem-list";
+import { PageHeader } from "@/components/layout/page-header";
 
 export const metadata = { title: "Coding Assessment" };
 
@@ -8,12 +9,10 @@ export default async function CodingPage() {
   const problems = await fetchCodingProblems();
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Coding Assessment</h1>
-        <p className="text-sm text-muted-foreground">
-          Solve interview problems with a built-in editor and AI feedback.
-        </p>
-      </div>
+      <PageHeader
+        title="Coding Assessment"
+        description="Solve interview problems with a built-in editor and real test execution."
+      />
       <ProblemList problems={problems} />
     </div>
   );

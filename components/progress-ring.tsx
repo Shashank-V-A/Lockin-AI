@@ -11,8 +11,8 @@ interface ProgressRingProps {
 /** Circular progress indicator for scores. */
 export function ProgressRing({
   value,
-  size = 120,
-  strokeWidth = 8,
+  size = 112,
+  strokeWidth = 6,
   label,
   className,
 }: ProgressRingProps) {
@@ -43,12 +43,11 @@ export function ProgressRing({
           strokeDashoffset={offset}
           strokeLinecap="round"
           className="text-accent transition-all duration-700 ease-out"
-          style={{ stroke: "#4F46E5" }}
         />
       </svg>
       <div className="absolute flex flex-col items-center">
-        <span className="text-2xl font-semibold tracking-tight">{value}</span>
-        {label && <span className="text-xs text-muted-foreground">{label}</span>}
+        <span className="text-2xl font-semibold tabular-nums tracking-tight">{value}</span>
+        {label && <span className="text-[11px] text-muted-foreground">{label}</span>}
       </div>
     </div>
   );

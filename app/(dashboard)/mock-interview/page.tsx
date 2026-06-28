@@ -1,7 +1,7 @@
 import { InterviewSetup } from "@/features/interview/interview-setup";
 import { fetchRecentInterviews } from "@/actions/interview-actions";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/layout/page-header";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 
@@ -13,26 +13,24 @@ export default async function MockInterviewPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Mock Interview</h1>
-        <p className="text-sm text-muted-foreground">
-          Practice company-specific interviews with AI evaluation.
-        </p>
-      </div>
+      <PageHeader
+        title="Mock Interview"
+        description="Practice company-specific interviews with structured AI evaluation."
+      />
 
       <InterviewSetup />
 
       {recent.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Recent Sessions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
+        <div className="surface-card">
+          <div className="border-b border-border px-5 py-4">
+            <h2 className="text-sm font-semibold tracking-tight">Recent Sessions</h2>
+          </div>
+          <div className="space-y-1 p-2">
             {recent.map((session) => (
               <Link
                 key={session.id}
                 href={`/mock-interview/${session.id}`}
-                className="flex items-center justify-between rounded-xl border border-border p-4 transition-colors hover:bg-muted/50"
+                className="group flex items-center justify-between rounded-lg px-3 py-3 transition-colors hover:bg-muted/60"
               >
                 <div>
                   <p className="text-sm font-medium">
@@ -43,15 +41,19 @@ export default async function MockInterviewPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline">{session.status}</Badge>
+                  <Badge variant="outline" className="text-[10px]">
+                    {session.status.toLowerCase()}
+                  </Badge>
                   {session.overallScore !== null && (
-                    <Badge variant="secondary">{session.overallScore}%</Badge>
+                    <Badge variant="secondary" className="tabular-nums">
+                      {session.overallScore}%
+                    </Badge>
                   )}
                 </div>
               </Link>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
     </div>
   );

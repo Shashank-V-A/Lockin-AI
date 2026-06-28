@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { runCodeTests } from "@/lib/code-runner";
 import { analyzeCodingSubmission } from "@/services/ai-service";
 import type { CodingFeedback, TestCase } from "@/types/coding";
 
@@ -14,27 +15,24 @@ export async function getCodingProblem(slug: string) {
   return prisma.codingProblem.findUnique({ where: { slug } });
 }
 
-/** Simulates code execution for MVP (no external judge). */
-export function simulateExecution(
-  code: string,
-  testCases: TestCase[],
-): { passedTests: number; totalTests: number; runtime: number; memory: number } {
-  const totalTests = testCases.length;
-  const codeLower = code.toLowerCase();
-  const hasLogic =
-    codeLower.includes("return") ||
-    codeLower.includes("print") ||
-    code.length > 50;
-  const passedTests = hasLogic
-    ? Math.max(1, Math.floor(totalTests * (0.4 + Math.random() * 0.5)))
-    : 0;
+/** Runs code against test cases without saving a submission. */
+export async function runCodingSolution(params: {
+  problemId: string;
+  language: string;
+  code: string;
+}) {
+  const problem = await prisma.codingProblem.findUnique({
+    where: { id: params.problemId },
+  });
+  if (!problem) throw new Error("Problem not found");
 
-  return {
-    passedTests,
-    totalTests,
-    runtime: Math.floor(20 + Math.random() * 180),
-    memory: Math.floor(1024 + Math.random() * 8192),
-  };
+  const testCases = problem.testCases as unknown as TestCase[];
+  return runCodeTests({
+    code: params.code,
+    language: params.language,
+    slug: problem.slug,
+    testCases,
+  });
 }
 
 /** Submits and evaluates coding solution. */
@@ -50,8 +48,14 @@ export async function submitCodingSolution(params: {
   if (!problem) throw new Error("Problem not found");
 
   const testCases = problem.testCases as unknown as TestCase[];
-  const result = simulateExecution(params.code, testCases);
-  const passed = result.passedTests === result.totalTests;
+  const result = await runCodeTests({
+    code: params.code,
+    language: params.language,
+    slug: problem.slug,
+    testCases,
+  });
+
+  const passed = result.status === "PASSED";
   const score = Math.round((result.passedTests / result.totalTests) * 100);
 
   const feedback = await analyzeCodingSubmission({
@@ -59,6 +63,7 @@ export async function submitCodingSolution(params: {
     code: params.code,
     language: params.language,
     passed,
+    testResults: result.testResults,
   });
 
   const submission = await prisma.codingSubmission.create({
@@ -67,18 +72,23 @@ export async function submitCodingSolution(params: {
       problemId: params.problemId,
       language: params.language,
       code: params.code,
-      status: passed ? "PASSED" : result.passedTests > 0 ? "FAILED" : "ERROR",
+      status: result.status,
       runtime: result.runtime,
       memory: result.memory,
       score,
       passedTests: result.passedTests,
       totalTests: result.totalTests,
-      aiFeedback: feedback as object,
+      aiFeedback: { ...feedback, testResults: result.testResults, compileError: result.compileError } as object,
     },
     include: { problem: true },
   });
 
-  return { submission, feedback: feedback as CodingFeedback };
+  return {
+    submission,
+    feedback: feedback as CodingFeedback,
+    testResults: result.testResults,
+    compileError: result.compileError,
+  };
 }
 
 /** Gets user coding submissions. */

@@ -16,12 +16,13 @@ export default function DashboardError({
   }, [error]);
 
   return (
-    <div className="flex flex-col items-center justify-center py-20">
-      <h2 className="text-lg font-semibold">Something went wrong</h2>
-      <p className="mt-2 text-sm text-muted-foreground">
+    <div className="flex flex-col items-center justify-center py-24">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Error</p>
+      <h2 className="mt-2 text-lg font-semibold tracking-tight">Something went wrong</h2>
+      <p className="mt-2 max-w-sm text-center text-sm text-muted-foreground">
         An unexpected error occurred. Please try again.
       </p>
-      <Button onClick={reset} className="mt-4">
+      <Button variant="accent" onClick={reset} className="mt-6">
         Try again
       </Button>
     </div>

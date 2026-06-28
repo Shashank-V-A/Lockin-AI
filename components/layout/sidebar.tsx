@@ -10,13 +10,14 @@ import {
   BarChart3,
   Sparkles,
   Settings,
-  ChevronLeft,
-  ChevronRight,
+  PanelLeftClose,
+  PanelLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NAV_ITEMS, APP_NAME } from "@/lib/constants";
+import { NAV_ITEMS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { useSidebarStore } from "@/hooks/use-sidebar-store";
+import { Logo } from "@/components/layout/logo";
 
 const ICON_MAP = {
   LayoutDashboard,
@@ -36,27 +37,17 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-border bg-card transition-all duration-200",
+        "fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-sidebar-border bg-sidebar/95 backdrop-blur-xl transition-all duration-200 ease-out",
         collapsed ? "w-[68px]" : "w-[240px]",
       )}
     >
-      <div className="flex h-14 items-center border-b border-border px-4">
-        {!collapsed && (
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold">
-              L
-            </div>
-            <span className="text-sm font-semibold tracking-tight">{APP_NAME}</span>
-          </Link>
-        )}
-        {collapsed && (
-          <div className="mx-auto flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold">
-            L
-          </div>
-        )}
+      <div className="flex h-14 items-center border-b border-sidebar-border px-4">
+        <Link href="/dashboard" className={cn("min-w-0", collapsed && "mx-auto")}>
+          <Logo showText={!collapsed} />
+        </Link>
       </div>
 
-      <nav className="flex-1 space-y-1 p-3">
+      <nav className="flex-1 space-y-0.5 p-2.5">
         {NAV_ITEMS.map((item) => {
           const Icon = ICON_MAP[item.icon as keyof typeof ICON_MAP];
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -65,30 +56,43 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              title={collapsed ? item.label : undefined}
               className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors duration-200",
+                "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors duration-150",
                 active
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
                 collapsed && "justify-center px-2",
               )}
             >
-              <Icon className="h-4 w-4 shrink-0" />
+              {active && (
+                <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-accent" />
+              )}
+              <Icon className={cn("h-4 w-4 shrink-0", active && "text-accent")} />
               {!collapsed && <span>{item.label}</span>}
             </Link>
           );
         })}
       </nav>
 
-      <div className="border-t border-border p-3">
+      <div className="border-t border-sidebar-border p-2.5">
         <Button
           variant="ghost"
           size="sm"
           onClick={toggle}
-          className={cn("w-full", collapsed && "px-2")}
+          className={cn(
+            "h-8 w-full justify-start text-muted-foreground hover:text-foreground",
+            collapsed && "justify-center px-0",
+          )}
         >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-          {!collapsed && <span className="ml-2">Collapse</span>}
+          {collapsed ? (
+            <PanelLeft className="h-4 w-4" />
+          ) : (
+            <>
+              <PanelLeftClose className="h-4 w-4" />
+              <span className="ml-2 text-xs">Collapse</span>
+            </>
+          )}
         </Button>
       </div>
     </aside>

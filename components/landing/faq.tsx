@@ -10,41 +10,47 @@ import {
 const FAQS = [
   {
     q: "Is Lockin-AI free to use?",
-    a: "Yes, the MVP is completely free. Focus on preparing for your interviews without worrying about subscriptions.",
+    a: "Yes. The current version is free while we refine the core interview prep experience.",
   },
   {
     q: "What companies are supported for mock interviews?",
-    a: "You can practice for Google, Meta, Amazon, Microsoft, Apple, Netflix, Stripe, Airbnb, Uber, LinkedIn, and more.",
+    a: "Google, Meta, Amazon, Microsoft, Apple, Netflix, Stripe, Airbnb, Uber, LinkedIn, and more.",
   },
   {
     q: "How does resume analysis work?",
-    a: "Upload your PDF resume. We extract the text, analyze it with AI, and provide ATS scoring, strengths, weaknesses, and actionable suggestions.",
+    a: "Upload a PDF resume. We extract the text, analyze it with AI, and return ATS scoring plus specific improvements.",
   },
   {
-    q: "Do you support coding in multiple languages?",
-    a: "Yes — Python, Java, JavaScript, and C++ are supported in the coding assessment module with a built-in Monaco editor.",
+    q: "Which languages are supported for coding?",
+    a: "Python and JavaScript run against real test cases. Java and C++ use static analysis for now.",
   },
   {
     q: "Is my data secure?",
-    a: "Your data is stored securely with encrypted sessions. Resume files are stored via UploadThing with access restricted to your account.",
+    a: "Your data is tied to your account with encrypted sessions. Resume files are stored via UploadThing with restricted access.",
   },
 ];
 
 /** FAQ accordion section. */
 export function FAQ() {
   return (
-    <section id="faq" className="border-t border-border bg-card">
-      <div className="mx-auto max-w-2xl px-6 py-24">
+    <section id="faq" className="py-24">
+      <div className="mx-auto max-w-2xl px-6">
         <div className="text-center">
-          <h2 className="text-3xl font-semibold tracking-tight">FAQ</h2>
-          <p className="mt-3 text-muted-foreground">Common questions answered.</p>
+          <p className="text-[11px] font-medium uppercase tracking-wider text-accent">FAQ</p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight">Common questions</h2>
         </div>
 
-        <Accordion type="single" collapsible className="mt-12">
+        <Accordion type="single" collapsible className="mt-12 space-y-2">
           {FAQS.map((item, i) => (
-            <AccordionItem key={i} value={`item-${i}`}>
-              <AccordionTrigger className="text-sm font-medium">{item.q}</AccordionTrigger>
-              <AccordionContent className="text-sm text-muted-foreground">
+            <AccordionItem
+              key={i}
+              value={`item-${i}`}
+              className="rounded-xl border border-border bg-card px-4 shadow-soft"
+            >
+              <AccordionTrigger className="py-4 text-sm font-medium hover:no-underline">
+                {item.q}
+              </AccordionTrigger>
+              <AccordionContent className="pb-4 text-sm leading-relaxed text-muted-foreground">
                 {item.a}
               </AccordionContent>
             </AccordionItem>

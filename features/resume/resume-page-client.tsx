@@ -1,16 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { UploadDropzone } from "@/lib/uploadthing-client";
+import { ResumeUploadDropzone } from "@/components/resume-upload-dropzone";
 import { saveAndAnalyzeResume } from "@/actions/resume-actions";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/layout/page-header";
 import { Download, FileText, Loader2 } from "lucide-react";
 import type { ResumeAnalysis } from "@/types/resume";
 import { generateResumePDF } from "@/lib/pdf";
 import { getUploadFileUrl } from "@/lib/pdf-extract";
+import { cn } from "@/lib/utils";
 
 interface UploadedFile {
   url?: string;
@@ -80,47 +81,47 @@ export function ResumePageClient({ resumes }: ResumePageClientProps) {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Resume Analyzer</h1>
-        <p className="text-sm text-muted-foreground">
-          Upload your PDF resume for ATS scoring and AI-powered feedback.
-        </p>
-      </div>
+      <PageHeader
+        title="Resume Analyzer"
+        description="Upload your PDF resume for ATS scoring and actionable feedback."
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Upload Resume</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="surface-card">
+        <div className="border-b border-border px-5 py-4">
+          <h2 className="text-sm font-semibold tracking-tight">Upload Resume</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">PDF format, up to 4MB</p>
+        </div>
+        <div className="p-5">
           {analyzing ? (
-            <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 py-14 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               Analyzing your resume...
             </div>
           ) : (
-            <UploadDropzone
-              endpoint="resumeUploader"
+            <ResumeUploadDropzone
               onClientUploadComplete={handleUploadComplete}
               onUploadError={(error) => {
                 toast.error(error.message);
               }}
             />
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {latest && analysis && latest.status === "COMPLETED" && (
         <>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <FileText className="h-5 w-5 text-muted-foreground" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+              </div>
               <div>
                 <p className="text-sm font-medium">{latest.fileName}</p>
                 <p className="text-xs text-muted-foreground">Latest analysis</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <Badge className="text-sm" style={{ backgroundColor: "#4F46E5" }}>
+            <div className="flex items-center gap-2">
+              <Badge variant="accent" className="tabular-nums text-sm">
                 ATS {latest.atsScore}
               </Badge>
               <Button
@@ -141,42 +142,34 @@ export function ResumePageClient({ resumes }: ResumePageClientProps) {
             <AnalysisCard title="Project Feedback" items={analysis.projectFeedback} />
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Actionable Suggestions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                {analysis.suggestions.map((s, i) => (
-                  <li key={i} className="flex gap-2 text-sm">
-                    <span className="text-muted-foreground">{i + 1}.</span>
-                    {s}
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
+          <div className="surface-card p-5">
+            <h3 className="text-sm font-semibold tracking-tight">Actionable Suggestions</h3>
+            <ol className="mt-4 space-y-2.5">
+              {analysis.suggestions.map((s, i) => (
+                <li key={i} className="flex gap-3 text-sm leading-relaxed">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted text-[11px] font-medium text-muted-foreground">
+                    {i + 1}
+                  </span>
+                  {s}
+                </li>
+              ))}
+            </ol>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Summary</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground leading-relaxed">{analysis.summary}</p>
-            </CardContent>
-          </Card>
+          <div className="surface-card p-5">
+            <h3 className="text-sm font-semibold tracking-tight">Summary</h3>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{analysis.summary}</p>
+          </div>
         </>
       )}
 
       {resumes.length === 0 && (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <FileText className="mx-auto h-8 w-8 text-muted-foreground" />
-            <p className="mt-3 text-sm text-muted-foreground">
-              No resumes uploaded yet. Upload your first resume to get started.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="surface-card py-16 text-center">
+          <FileText className="mx-auto h-8 w-8 text-muted-foreground/60" strokeWidth={1.5} />
+          <p className="mt-4 text-sm text-muted-foreground">
+            No resumes uploaded yet. Upload your first resume to get started.
+          </p>
+        </div>
       )}
     </div>
   );
@@ -192,30 +185,23 @@ function AnalysisCard({
   variant?: "positive" | "negative";
 }) {
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ul className="space-y-2">
-          {items.map((item, i) => (
-            <li key={i} className="flex gap-2 text-sm text-muted-foreground">
-              <span
-                className={
-                  variant === "positive"
-                    ? "text-green-600"
-                    : variant === "negative"
-                      ? "text-red-500"
-                      : "text-muted-foreground"
-                }
-              >
-                •
-              </span>
-              {item}
-            </li>
-          ))}
-        </ul>
-      </CardContent>
-    </Card>
+    <div className="surface-card p-5">
+      <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
+      <ul className="mt-3 space-y-2">
+        {items.map((item, i) => (
+          <li key={i} className="flex gap-2.5 text-sm leading-relaxed text-muted-foreground">
+            <span
+              className={cn(
+                "mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full",
+                variant === "positive" && "bg-emerald-500",
+                variant === "negative" && "bg-red-400",
+                !variant && "bg-muted-foreground/40",
+              )}
+            />
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { submitAnswer, finishInterview } from "@/actions/interview-actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
@@ -97,7 +96,7 @@ export function InterviewSessionClient({ session }: InterviewSessionClientProps)
     const report = session.report as InterviewReport | null;
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Interview Complete</h1>
             <p className="text-sm text-muted-foreground">
@@ -105,7 +104,7 @@ export function InterviewSessionClient({ session }: InterviewSessionClientProps)
             </p>
           </div>
           {session.overallScore !== null && (
-            <Badge className="text-lg px-4 py-1" style={{ backgroundColor: "#4F46E5" }}>
+            <Badge variant="accent" className="px-3 py-1 text-base tabular-nums">
               {session.overallScore}%
             </Badge>
           )}
@@ -113,37 +112,41 @@ export function InterviewSessionClient({ session }: InterviewSessionClientProps)
 
         {report && (
           <>
-            <Card>
-              <CardHeader><CardTitle className="text-base">Summary</CardTitle></CardHeader>
-              <CardContent><p className="text-sm text-muted-foreground">{report.summary}</p></CardContent>
-            </Card>
+            <div className="surface-card p-5">
+              <h2 className="text-sm font-semibold tracking-tight">Summary</h2>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{report.summary}</p>
+            </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <Card>
-                <CardHeader><CardTitle className="text-base">Strengths</CardTitle></CardHeader>
-                <CardContent>
-                  <ul className="space-y-1">
-                    {report.strengths.map((s, i) => (
-                      <li key={i} className="text-sm text-muted-foreground">• {s}</li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader><CardTitle className="text-base">Improvements</CardTitle></CardHeader>
-                <CardContent>
-                  <ul className="space-y-1">
-                    {report.improvements.map((s, i) => (
-                      <li key={i} className="text-sm text-muted-foreground">• {s}</li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
+              <div className="surface-card p-5">
+                <h2 className="text-sm font-semibold tracking-tight">Strengths</h2>
+                <ul className="mt-3 space-y-2">
+                  {report.strengths.map((s, i) => (
+                    <li key={i} className="flex gap-2.5 text-sm text-muted-foreground">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="surface-card p-5">
+                <h2 className="text-sm font-semibold tracking-tight">Improvements</h2>
+                <ul className="mt-3 space-y-2">
+                  {report.improvements.map((s, i) => (
+                    <li key={i} className="flex gap-2.5 text-sm text-muted-foreground">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </>
         )}
 
-        <Button onClick={() => router.push("/mock-interview")}>Start New Interview</Button>
+        <Button variant="accent" onClick={() => router.push("/mock-interview")}>
+          Start New Interview
+        </Button>
       </div>
     );
   }
@@ -152,63 +155,62 @@ export function InterviewSessionClient({ session }: InterviewSessionClientProps)
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">{session.company} Interview</h1>
+          <h1 className="text-xl font-semibold tracking-tight">{session.company} Interview</h1>
           <Badge variant="secondary">{session.role}</Badge>
         </div>
-        <Progress value={progress} className="mt-4 h-1.5" />
-        <p className="mt-2 text-xs text-muted-foreground">
+        <Progress value={progress} className="mt-4 h-1" />
+        <p className="mt-2 text-xs tabular-nums text-muted-foreground">
           Question {currentIndex + 1} of {session.questions.length}
         </p>
       </div>
 
       {currentQuestion && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline">{currentQuestion.category}</Badge>
-            </div>
-            <CardTitle className="text-base leading-relaxed mt-2">
-              {currentQuestion.question}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <div className="surface-card">
+          <div className="border-b border-border px-5 py-4">
+            <Badge variant="outline" className="text-[10px]">
+              {currentQuestion.category}
+            </Badge>
+            <p className="mt-3 text-sm font-medium leading-relaxed">{currentQuestion.question}</p>
+          </div>
+          <div className="space-y-4 p-5">
             <Textarea
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
               placeholder="Type your answer here..."
               rows={6}
-              className="resize-none"
+              className="resize-none border-border/80"
             />
-            <Button onClick={handleSubmit} disabled={loading || !answer.trim()}>
+            <Button variant="accent" onClick={handleSubmit} disabled={loading || !answer.trim()}>
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Submit Answer
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {lastEval && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Feedback — {lastEval.overallScore}%</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-4 gap-2">
-              {[
-                { label: "Technical", value: lastEval.technicalAccuracy },
-                { label: "Communication", value: lastEval.communication },
-                { label: "Confidence", value: lastEval.confidence },
-                { label: "Completeness", value: lastEval.completeness },
-              ].map((m) => (
-                <div key={m.label} className="rounded-lg border border-border p-2 text-center">
-                  <p className="text-lg font-semibold">{m.value}</p>
-                  <p className="text-[10px] text-muted-foreground">{m.label}</p>
-                </div>
-              ))}
-            </div>
-            <p className="text-sm text-muted-foreground">{lastEval.feedback}</p>
-          </CardContent>
-        </Card>
+        <div className="surface-card p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold tracking-tight">Feedback</h2>
+            <Badge variant="accent" className="tabular-nums">
+              {lastEval.overallScore}%
+            </Badge>
+          </div>
+          <div className="mt-4 grid grid-cols-4 gap-2">
+            {[
+              { label: "Technical", value: lastEval.technicalAccuracy },
+              { label: "Communication", value: lastEval.communication },
+              { label: "Confidence", value: lastEval.confidence },
+              { label: "Completeness", value: lastEval.completeness },
+            ].map((m) => (
+              <div key={m.label} className="rounded-lg bg-muted/60 px-2 py-2.5 text-center">
+                <p className="text-lg font-semibold tabular-nums">{m.value}</p>
+                <p className="text-[10px] text-muted-foreground">{m.label}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{lastEval.feedback}</p>
+        </div>
       )}
     </div>
   );

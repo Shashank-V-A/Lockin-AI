@@ -1,9 +1,13 @@
+import type { TestResult } from "@/lib/code-runner";
+
 export interface CodingFeedback {
   betterSolution: string;
   timeComplexity: string;
   spaceComplexity: string;
   mistakes: string[];
   summary: string;
+  testResults?: TestResult[];
+  compileError?: string;
 }
 
 export interface CodingProblemData {
@@ -25,6 +29,8 @@ export interface CodingSubmissionResult {
   totalTests: number;
   score: number;
   feedback: CodingFeedback;
+  testResults: TestResult[];
+  compileError?: string;
 }
 
 export interface TestCase {

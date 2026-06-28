@@ -7,13 +7,20 @@ const globalForPrisma = globalThis as unknown as {
   pool: Pool | undefined;
 };
 
-/** Creates a PostgreSQL connection pool. */
+/** Creates a PostgreSQL connection pool tuned for Neon serverless. */
 function createPool() {
-  const connectionString =
-    process.env.DATABASE_URL ??
-    "postgresql://placeholder:placeholder@localhost:5432/placeholder";
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("DATABASE_URL is not set.");
+  }
 
-  return new Pool({ connectionString });
+  return new Pool({
+    connectionString,
+    max: process.env.NODE_ENV === "production" ? 10 : 5,
+    idleTimeoutMillis: 20_000,
+    connectionTimeoutMillis: 20_000,
+    allowExitOnIdle: true,
+  });
 }
 
 /** Singleton Prisma client for server-side database access. */
@@ -21,9 +28,7 @@ function createPrismaClient() {
   const pool = globalForPrisma.pool ?? createPool();
   const adapter = new PrismaPg(pool);
 
-  if (process.env.NODE_ENV !== "production") {
-    globalForPrisma.pool = pool;
-  }
+  globalForPrisma.pool = pool;
 
   return new PrismaClient({
     adapter,

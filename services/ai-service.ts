@@ -67,10 +67,15 @@ export async function analyzeCodingSubmission(params: {
   code: string;
   language: string;
   passed: boolean;
+  testResults?: { input: string; expected: string; actual?: string; error?: string; passed: boolean }[];
 }): Promise<CodingFeedback> {
+  const testSummary = params.testResults
+    ? `\nTest results:\n${JSON.stringify(params.testResults, null, 2)}`
+    : "";
+
   return generateJSON<CodingFeedback>(
     CODING_FEEDBACK_SYSTEM,
-    `Problem: ${params.problem}\nLanguage: ${params.language}\nPassed: ${params.passed}\nCode:\n${params.code}`,
+    `Problem: ${params.problem}\nLanguage: ${params.language}\nAll tests passed: ${params.passed}${testSummary}\nCode:\n${params.code}`,
   );
 }
 
