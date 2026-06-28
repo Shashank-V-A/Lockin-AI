@@ -1,0 +1,232 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts           Account[]
+  sessions           Session[]
+  resumes            Resume[]
+  interviewSessions  InterviewSession[]
+  codingSubmissions  CodingSubmission[]
+  coachMessages      CoachMessage[]
+  reports            Report[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Resume {
+  id          String   @id @default(cuid())
+  userId      String
+  fileName    String
+  fileUrl     String
+  fileKey     String
+  rawText     String?  @db.Text
+  atsScore    Int?
+  analysis    Json?
+  status      ResumeStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reports Report[]
+
+  @@index([userId])
+}
+
+enum ResumeStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model InterviewSession {
+  id           String   @id @default(cuid())
+  userId       String
+  company      String
+  role         String
+  experience   String
+  difficulty   Difficulty
+  status       InterviewStatus @default(IN_PROGRESS)
+  overallScore Int?
+  report       Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  completedAt  DateTime?
+
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questions InterviewQuestion[]
+  answers   InterviewAnswer[]
+  reports   Report[]
+
+  @@index([userId])
+}
+
+enum InterviewStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model InterviewQuestion {
+  id        String @id @default(cuid())
+  sessionId String
+  order     Int
+  question  String @db.Text
+  category  String
+
+  session InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  answers InterviewAnswer[]
+
+  @@index([sessionId])
+}
+
+model InterviewAnswer {
+  id                  String @id @default(cuid())
+  sessionId           String
+  questionId          String
+  answer              String @db.Text
+  technicalAccuracy   Int?
+  communication       Int?
+  confidence          Int?
+  completeness        Int?
+  overallScore        Int?
+  feedback            String? @db.Text
+  createdAt           DateTime @default(now())
+
+  session  InterviewSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question InterviewQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model CodingProblem {
+  id          String     @id @default(cuid())
+  title       String
+  slug        String     @unique
+  description String     @db.Text
+  difficulty  Difficulty
+  topic       String
+  starterCode Json
+  testCases   Json
+  solution    String?    @db.Text
+  timeLimit   Int        @default(30)
+  createdAt   DateTime   @default(now())
+
+  submissions CodingSubmission[]
+}
+
+model CodingSubmission {
+  id              String   @id @default(cuid())
+  userId          String
+  problemId       String
+  language        String
+  code            String   @db.Text
+  status          SubmissionStatus @default(PENDING)
+  runtime         Int?
+  memory          Int?
+  score           Int?
+  aiFeedback      Json?
+  passedTests     Int?
+  totalTests      Int?
+  createdAt       DateTime @default(now())
+
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem CodingProblem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([problemId])
+}
+
+enum SubmissionStatus {
+  PENDING
+  PASSED
+  FAILED
+  ERROR
+}
+
+model CoachMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  role      String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Report {
+  id        String     @id @default(cuid())
+  userId    String
+  type      ReportType
+  title     String
+  data      Json
+  resumeId  String?
+  sessionId String?
+  createdAt DateTime   @default(now())
+
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resume  Resume?           @relation(fields: [resumeId], references: [id], onDelete: SetNull)
+  session InterviewSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+enum ReportType {
+  RESUME
+  INTERVIEW
+  CODING
+}
