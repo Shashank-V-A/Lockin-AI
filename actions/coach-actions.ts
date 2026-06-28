@@ -23,7 +23,7 @@ export async function sendCoachMessage(content: string) {
   const history = await prisma.coachMessage.findMany({
     where: { userId },
     orderBy: { createdAt: "asc" },
-    take: 20,
+    take: 32,
   });
 
   const response = await generateCoachResponse(

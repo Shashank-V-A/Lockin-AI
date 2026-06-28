@@ -5,6 +5,16 @@ import { getAverageCodingScore } from "@/services/coding-service";
 import type { AnalyticsData, DashboardStats } from "@/types/index";
 import { format } from "date-fns";
 
+/** Fetches all dashboard page data (stats + analytics). */
+export async function getDashboardPageData(userId: string) {
+  const [stats, analytics] = await Promise.all([
+    getDashboardStats(userId),
+    getAnalyticsData(userId),
+  ]);
+
+  return { stats, analytics };
+}
+
 /** Computes dashboard statistics for a user. */
 export async function getDashboardStats(userId: string): Promise<DashboardStats> {
   const [resumeScore, interviewAvg, codingAvg, recentInterviews] = await Promise.all([
@@ -18,31 +28,12 @@ export async function getDashboardStats(userId: string): Promise<DashboardStats>
     resumeScore * 0.3 + interviewAvg * 0.4 + codingAvg * 0.3,
   );
 
-  const upcomingPlan = [
-    {
-      title: "Upload latest resume",
-      description: "Keep your ATS score current with your latest experience.",
-      href: "/resume",
-    },
-    {
-      title: "Complete a mock interview",
-      description: "Practice company-specific questions this week.",
-      href: "/mock-interview",
-    },
-    {
-      title: "Solve a coding problem",
-      description: "Sharpen your algorithm skills with timed practice.",
-      href: "/coding",
-    },
-  ];
-
   return {
     readinessScore,
     resumeScore,
     interviewAvg,
     codingAvg,
     recentInterviews,
-    upcomingPlan,
   };
 }
 

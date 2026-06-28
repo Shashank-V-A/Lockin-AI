@@ -27,7 +27,6 @@ export async function saveAndAnalyzeResume(params: {
   await processResume(resume.id, params.rawText);
   revalidatePath("/resume");
   revalidatePath("/dashboard");
-  revalidatePath("/analytics");
 
   return resume.id;
 }

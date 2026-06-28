@@ -16,11 +16,6 @@ export function Hero() {
         transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
         className="mx-auto max-w-3xl text-center"
       >
-        <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground shadow-soft">
-          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-          Interview preparation platform
-        </div>
-
         <h1 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl md:text-[3.25rem] md:leading-[1.08]">
           <span className="accent-gradient-text">{APP_NAME}</span>
         </h1>

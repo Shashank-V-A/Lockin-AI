@@ -1,4 +1,4 @@
-import { generateJSON, generateText } from "@/lib/groq";
+import { generateJSON, generateText, generateChat } from "@/lib/groq";
 import type { ResumeAnalysis } from "@/types/resume";
 import type { AnswerEvaluation, InterviewReport } from "@/types/interview";
 import type { CodingFeedback } from "@/types/coding";
@@ -79,16 +79,29 @@ export async function analyzeCodingSubmission(params: {
   );
 }
 
+const COACH_SYSTEM = `You are Lockin-AI Coach — an expert software engineering interview and career coach.
+
+Format every response in clean, readable Markdown (like ChatGPT):
+- Use ## for main sections and ### for subsections
+- Use bullet lists and numbered steps where helpful
+- Put ALL code in fenced blocks with the correct language tag (e.g. \`\`\`python, \`\`\`javascript, \`\`\`java)
+- For coding questions include: Problem summary, Approach, Solution (with code), Time/Space complexity, and Edge cases when relevant
+- For behavioral questions use STAR format (Situation, Task, Action, Result)
+- For system design, use clear sections: Requirements, High-level design, Components, Trade-offs
+- Use **bold** for important terms; keep paragraphs short
+- Be practical, accurate, and encouraging`;
+
 /** Generates a coach chat response with conversation history. */
 export async function generateCoachResponse(
   messages: { role: string; content: string }[],
 ): Promise<string> {
-  const systemPrompt = `You are Lockin-AI Coach — a knowledgeable, concise career coach for software engineers. Help with interview prep, resume advice, and career guidance. Be practical and encouraging.`;
+  const chatMessages = messages
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .slice(-16)
+    .map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    }));
 
-  const history = messages
-    .slice(-10)
-    .map((m) => `${m.role}: ${m.content}`)
-    .join("\n");
-
-  return generateText(systemPrompt, history);
+  return generateChat(COACH_SYSTEM, chatMessages);
 }

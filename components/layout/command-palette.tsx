@@ -7,7 +7,6 @@ import {
   FileText,
   MessageSquare,
   Code2,
-  BarChart3,
   Sparkles,
   Settings,
 } from "lucide-react";
@@ -28,7 +27,6 @@ const ICON_MAP = {
   FileText,
   MessageSquare,
   Code2,
-  BarChart3,
   Sparkles,
   Settings,
 } as const;

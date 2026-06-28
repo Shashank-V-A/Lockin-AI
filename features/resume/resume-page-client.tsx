@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ResumeUploadDropzone } from "@/components/resume-upload-dropzone";
 import { saveAndAnalyzeResume } from "@/actions/resume-actions";
+import { fetchResumeReportAnalytics } from "@/actions/analytics-actions";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ interface ResumePageClientProps {
 /** Resume upload and analysis display. */
 export function ResumePageClient({ resumes }: ResumePageClientProps) {
   const [analyzing, setAnalyzing] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const handleUploadComplete = async (files: UploadedFile[]) => {
     const file = files[0];
@@ -78,6 +80,20 @@ export function ResumePageClient({ resumes }: ResumePageClientProps) {
 
   const latest = resumes[0];
   const analysis = latest?.analysis as ResumeAnalysis | null;
+
+  const handleDownloadReport = async () => {
+    if (!latest || !analysis) return;
+
+    setDownloading(true);
+    try {
+      const analytics = await fetchResumeReportAnalytics();
+      await generateResumePDF(latest.fileName, analysis, analytics);
+    } catch {
+      toast.error("Failed to generate report");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -127,9 +143,14 @@ export function ResumePageClient({ resumes }: ResumePageClientProps) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => generateResumePDF(latest.fileName, analysis)}
+                disabled={downloading}
+                onClick={handleDownloadReport}
               >
-                <Download className="mr-2 h-4 w-4" />
+                {downloading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
                 Download Report
               </Button>
             </div>

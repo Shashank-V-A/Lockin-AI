@@ -1,10 +1,6 @@
-import { fetchAnalyticsData } from "@/actions/analytics-actions";
-import { AnalyticsCharts } from "@/features/analytics/analytics-charts";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "Analytics" };
-
-/** Analytics dashboard page. */
-export default async function AnalyticsPage() {
-  const data = await fetchAnalyticsData();
-  return <AnalyticsCharts data={data} />;
+/** Analytics merged into dashboard — redirect legacy route. */
+export default function AnalyticsPage() {
+  redirect("/dashboard");
 }

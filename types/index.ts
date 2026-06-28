@@ -6,6 +6,7 @@ export type { ResumeAnalysis } from "@/types/resume";
 export type { InterviewReport, AnswerEvaluation } from "@/types/interview";
 export type { CodingFeedback } from "@/types/coding";
 
+export type { DashboardPageData } from "@/types/dashboard";
 export interface DashboardStats {
   readinessScore: number;
   resumeScore: number;
@@ -17,11 +18,6 @@ export interface DashboardStats {
     role: string;
     overallScore: number | null;
     createdAt: Date;
-  }[];
-  upcomingPlan: {
-    title: string;
-    description: string;
-    href: string;
   }[];
 }
 

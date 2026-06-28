@@ -2,29 +2,32 @@ import { ProgressRing } from "@/components/progress-ring";
 import { AnimatedCounter } from "@/components/animated-counter";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
+import { DashboardAnalytics } from "@/features/dashboard/dashboard-analytics";
 import Link from "next/link";
-import { ArrowRight, FileText, MessageSquare, Code2, BarChart3 } from "lucide-react";
-import type { DashboardStats } from "@/types/index";
+import { FileText, MessageSquare, Code2, Sparkles } from "lucide-react";
+import type { DashboardPageData } from "@/types/dashboard";
 import { formatDistanceToNow } from "date-fns";
 
 interface DashboardContentProps {
-  stats: DashboardStats;
+  data: DashboardPageData;
 }
 
-/** Main dashboard content with stats and quick actions. */
-export function DashboardContent({ stats }: DashboardContentProps) {
+/** Unified dashboard with stats, analytics, and quick actions. */
+export function DashboardContent({ data }: DashboardContentProps) {
+  const { stats, analytics } = data;
+
   const quickActions = [
     { href: "/resume", label: "Upload Resume", icon: FileText, desc: "Analyze your resume" },
     { href: "/mock-interview", label: "Mock Interview", icon: MessageSquare, desc: "Start practicing" },
     { href: "/coding", label: "Coding Assessment", icon: Code2, desc: "Solve problems" },
-    { href: "/analytics", label: "View Analytics", icon: BarChart3, desc: "Track progress" },
+    { href: "/coach", label: "AI Coach", icon: Sparkles, desc: "Get career guidance" },
   ];
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Dashboard"
-        description="Your interview preparation overview at a glance."
+        description="Your interview preparation overview, progress, and analytics in one place."
       />
 
       <div className="grid gap-4 lg:grid-cols-4">
@@ -52,64 +55,43 @@ export function DashboardContent({ stats }: DashboardContentProps) {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="surface-card">
-          <div className="border-b border-border px-5 py-4">
-            <h2 className="text-sm font-semibold tracking-tight">Upcoming Plan</h2>
-          </div>
-          <div className="space-y-1 p-2">
-            {stats.upcomingPlan.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="group flex items-center justify-between rounded-lg px-3 py-3 transition-colors hover:bg-muted/60"
-              >
-                <div>
-                  <p className="text-sm font-medium">{item.title}</p>
-                  <p className="text-xs text-muted-foreground">{item.description}</p>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-              </Link>
-            ))}
-          </div>
+      <div className="surface-card">
+        <div className="border-b border-border px-5 py-4">
+          <h2 className="text-sm font-semibold tracking-tight">Recent Interviews</h2>
         </div>
-
-        <div className="surface-card">
-          <div className="border-b border-border px-5 py-4">
-            <h2 className="text-sm font-semibold tracking-tight">Recent Interviews</h2>
-          </div>
-          <div className="p-2">
-            {stats.recentInterviews.length === 0 ? (
-              <p className="py-10 text-center text-sm text-muted-foreground">
-                No interviews yet. Start your first mock interview.
-              </p>
-            ) : (
-              <div className="space-y-1">
-                {stats.recentInterviews.map((interview) => (
-                  <div
-                    key={interview.id}
-                    className="flex items-center justify-between rounded-lg px-3 py-3"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">
-                        {interview.company} — {interview.role}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(interview.createdAt), { addSuffix: true })}
-                      </p>
-                    </div>
-                    {interview.overallScore !== null && (
-                      <Badge variant="secondary" className="tabular-nums">
-                        {interview.overallScore}%
-                      </Badge>
-                    )}
+        <div className="p-2">
+          {stats.recentInterviews.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              No interviews yet. Start your first mock interview.
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {stats.recentInterviews.map((interview) => (
+                <div
+                  key={interview.id}
+                  className="flex items-center justify-between rounded-lg px-3 py-3"
+                >
+                  <div>
+                    <p className="text-sm font-medium">
+                      {interview.company} — {interview.role}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(new Date(interview.createdAt), { addSuffix: true })}
+                    </p>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  {interview.overallScore !== null && (
+                    <Badge variant="secondary" className="tabular-nums">
+                      {interview.overallScore}%
+                    </Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      <DashboardAnalytics data={analytics} />
 
       <div>
         <h2 className="mb-3 text-sm font-semibold tracking-tight">Quick Actions</h2>

@@ -54,7 +54,6 @@ export async function finishInterview(sessionId: string) {
   const result = await completeInterviewSession(sessionId);
   revalidatePath("/mock-interview");
   revalidatePath("/dashboard");
-  revalidatePath("/analytics");
   return result;
 }
 

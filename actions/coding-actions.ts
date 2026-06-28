@@ -47,7 +47,6 @@ export async function submitCode(params: {
 
   revalidatePath("/coding");
   revalidatePath("/dashboard");
-  revalidatePath("/analytics");
   return result;
 }
 

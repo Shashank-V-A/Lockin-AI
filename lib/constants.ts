@@ -46,7 +46,6 @@ export const NAV_ITEMS = [
   { href: "/resume", label: "Resume", icon: "FileText" },
   { href: "/mock-interview", label: "Mock Interview", icon: "MessageSquare" },
   { href: "/coding", label: "Coding", icon: "Code2" },
-  { href: "/analytics", label: "Analytics", icon: "BarChart3" },
   { href: "/coach", label: "AI Coach", icon: "Sparkles" },
   { href: "/settings", label: "Settings", icon: "Settings" },
 ] as const;

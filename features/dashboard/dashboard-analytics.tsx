@@ -12,25 +12,26 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Badge } from "@/components/ui/badge";
-import { PageHeader } from "@/components/layout/page-header";
 import type { AnalyticsData } from "@/types/index";
 import { cn } from "@/lib/utils";
 
-interface AnalyticsChartsProps {
+interface DashboardAnalyticsProps {
   data: AnalyticsData;
 }
 
 const CHART_ACCENT = "var(--chart-1)";
 const CHART_SECONDARY = "var(--foreground)";
 
-/** Analytics dashboard charts. */
-export function AnalyticsCharts({ data }: AnalyticsChartsProps) {
+/** Analytics charts and insights for the dashboard page. */
+export function DashboardAnalytics({ data }: DashboardAnalyticsProps) {
   return (
     <div className="space-y-8">
-      <PageHeader
-        title="Analytics"
-        description="Track your interview preparation progress over time."
-      />
+      <div>
+        <h2 className="text-sm font-semibold tracking-tight">Progress Overview</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Track how your scores change over time.
+        </p>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
         {data.recentPerformance.map((item) => (
