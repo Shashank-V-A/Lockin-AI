@@ -9,7 +9,7 @@ import {
 
 const FAQS = [
   {
-    q: "Is PrepPilot AI free to use?",
+    q: "Is Lockin-AI free to use?",
     a: "Yes, the MVP is completely free. Focus on preparing for your interviews without worrying about subscriptions.",
   },
   {

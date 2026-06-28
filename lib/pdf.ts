@@ -26,7 +26,7 @@ export async function generateResumePDF(fileName: string, analysis: ResumeAnalys
     y -= size + 8;
   };
 
-  drawText("PrepPilot AI — Resume Analysis Report", 18, true);
+  drawText("Lockin-AI — Resume Analysis Report", 18, true);
   drawText(`File: ${fileName}`, 10);
   drawText(`ATS Score: ${analysis.atsScore}/100`, 14, true);
   y -= 8;

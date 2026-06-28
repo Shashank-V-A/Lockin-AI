@@ -1,4 +1,4 @@
-export const APP_NAME = "PrepPilot AI";
+export const APP_NAME = "Lockin-AI";
 export const APP_TAGLINE = "Ace Every Interview with AI.";
 
 export const COMPANIES = [

@@ -15,7 +15,8 @@ export const ourFileRouter = {
       return { userId: session.user.id };
     })
     .onUploadComplete(async ({ metadata, file }) => {
-      return { uploadedBy: metadata.userId, url: file.url, key: file.key, name: file.name };
+      const url = file.ufsUrl ?? file.url;
+      return { uploadedBy: metadata.userId, url, key: file.key, name: file.name };
     }),
 } satisfies FileRouter;
 

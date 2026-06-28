@@ -1,4 +1,4 @@
-# PrepPilot AI (Lockin-AI)
+# Lockin-AI
 
 Ace Every Interview with AI.
 

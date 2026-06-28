@@ -78,7 +78,7 @@ export async function analyzeCodingSubmission(params: {
 export async function generateCoachResponse(
   messages: { role: string; content: string }[],
 ): Promise<string> {
-  const systemPrompt = `You are PrepPilot AI Coach — a knowledgeable, concise career coach for software engineers. Help with interview prep, resume advice, and career guidance. Be practical and encouraging.`;
+  const systemPrompt = `You are Lockin-AI Coach — a knowledgeable, concise career coach for software engineers. Help with interview prep, resume advice, and career guidance. Be practical and encouraging.`;
 
   const history = messages
     .slice(-10)

@@ -10,6 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Download, FileText, Loader2 } from "lucide-react";
 import type { ResumeAnalysis } from "@/types/resume";
 import { generateResumePDF } from "@/lib/pdf";
+import { getUploadFileUrl } from "@/lib/pdf-extract";
+
+interface UploadedFile {
+  url?: string;
+  ufsUrl?: string;
+  key: string;
+  name: string;
+}
 
 interface ResumePageClientProps {
   resumes: {
@@ -27,32 +35,41 @@ interface ResumePageClientProps {
 export function ResumePageClient({ resumes }: ResumePageClientProps) {
   const [analyzing, setAnalyzing] = useState(false);
 
-  const handleUploadComplete = async (files: { url: string; key: string; name: string }[]) => {
+  const handleUploadComplete = async (files: UploadedFile[]) => {
     const file = files[0];
     if (!file) return;
+
+    const fileUrl = getUploadFileUrl(file);
+    if (!fileUrl) {
+      toast.error("Upload succeeded but file URL was missing");
+      return;
+    }
 
     setAnalyzing(true);
     try {
       const extractRes = await fetch("/api/resume/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileUrl: file.url }),
+        body: JSON.stringify({ fileUrl }),
       });
 
-      if (!extractRes.ok) throw new Error("Failed to extract text");
+      if (!extractRes.ok) {
+        const error = await extractRes.json().catch(() => null);
+        throw new Error(error?.error ?? "Failed to extract text");
+      }
       const { text } = await extractRes.json();
 
       await saveAndAnalyzeResume({
         fileName: file.name,
-        fileUrl: file.url,
+        fileUrl,
         fileKey: file.key,
         rawText: text,
       });
 
       toast.success("Resume analyzed successfully");
       window.location.reload();
-    } catch {
-      toast.error("Failed to analyze resume");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to analyze resume");
     } finally {
       setAnalyzing(false);
     }
