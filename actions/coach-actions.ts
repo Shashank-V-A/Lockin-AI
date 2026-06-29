@@ -2,8 +2,10 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateCoachResponse } from "@/services/ai-service";
 import { revalidatePath } from "next/cache";
+import { coachMessageSchema } from "@/lib/validations";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { generateCoachResponse } from "@/services/ai-service";
 
 async function requireUserId() {
   const session = await auth();
@@ -12,22 +14,26 @@ async function requireUserId() {
   return userId;
 }
 
-/** Sends a message to the AI coach and returns the response. */
+/** Sends a message to the AI coach (non-streaming fallback). */
 export async function sendCoachMessage(content: string) {
   const userId = await requireUserId();
+  await enforceRateLimit(userId, "coach");
+  const message = coachMessageSchema.parse(content);
 
   await prisma.coachMessage.create({
-    data: { userId, role: "user", content },
+    data: { userId, role: "user", content: message },
   });
 
   const history = await prisma.coachMessage.findMany({
     where: { userId },
-    orderBy: { createdAt: "asc" },
-    take: 32,
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    select: { role: true, content: true },
   });
 
   const response = await generateCoachResponse(
-    history.map((m) => ({ role: m.role, content: m.content })),
+    userId,
+    history.reverse().map((m) => ({ role: m.role, content: m.content })),
   );
 
   const assistantMessage = await prisma.coachMessage.create({

@@ -206,6 +206,12 @@ export function CodingProblemClient({ problem }: CodingProblemClientProps) {
             </div>
           </div>
 
+          {(language === "java" || language === "cpp") && (
+            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+              Java and C++ use AI code review on submit. Use Python or JavaScript to run tests live.
+            </p>
+          )}
+
           <div className="overflow-hidden rounded-xl border border-border shadow-soft">
             <MonacoEditor
               height="400px"

@@ -5,6 +5,8 @@ import { getAverageCodingScore } from "@/services/coding-service";
 import type { AnalyticsData, DashboardStats } from "@/types/index";
 import { format } from "date-fns";
 
+import { cached } from "@/lib/redis";
+
 /** Fetches all dashboard page data (stats + analytics). */
 export async function getDashboardPageData(userId: string) {
   const [stats, analytics] = await Promise.all([
@@ -17,6 +19,7 @@ export async function getDashboardPageData(userId: string) {
 
 /** Computes dashboard statistics for a user. */
 export async function getDashboardStats(userId: string): Promise<DashboardStats> {
+  return cached(`dashboard:stats:${userId}`, 90, async () => {
   const [resumeScore, interviewAvg, codingAvg, recentInterviews] = await Promise.all([
     getLatestResumeScore(userId),
     getAverageInterviewScore(userId),
@@ -35,10 +38,12 @@ export async function getDashboardStats(userId: string): Promise<DashboardStats>
     codingAvg,
     recentInterviews,
   };
+  });
 }
 
 /** Aggregates analytics data for charts. */
 export async function getAnalyticsData(userId: string): Promise<AnalyticsData> {
+  return cached(`dashboard:analytics:${userId}`, 120, async () => {
   const [resumes, interviews, submissions] = await Promise.all([
     prisma.resume.findMany({
       where: { userId, status: "COMPLETED", atsScore: { not: null } },
@@ -154,6 +159,7 @@ export async function getAnalyticsData(userId: string): Promise<AnalyticsData> {
     timeline: timeline.slice(0, 10),
     recentPerformance,
   };
+  });
 }
 
 /** Computes percentage change between last two data points. */

@@ -3,9 +3,11 @@ import { AnimatedCounter } from "@/components/animated-counter";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import Link from "next/link";
-import { FileText, MessageSquare, Code2, Sparkles } from "lucide-react";
+import { FileText, MessageSquare, Code2 } from "lucide-react";
 import type { DashboardStats } from "@/types/index";
 import { formatDistanceToNow } from "date-fns";
+import { AiCoachIcon } from "@/components/icons/ai-coach-icon";
+import { OnboardingBanner } from "@/features/dashboard/onboarding-banner";
 
 interface DashboardContentProps {
   stats: DashboardStats;
@@ -18,7 +20,7 @@ export function DashboardContent({ stats, analytics }: DashboardContentProps) {
     { href: "/resume", label: "Upload Resume", icon: FileText, desc: "Analyze your resume" },
     { href: "/mock-interview", label: "Mock Interview", icon: MessageSquare, desc: "Start practicing" },
     { href: "/coding", label: "Coding Assessment", icon: Code2, desc: "Solve problems" },
-    { href: "/coach", label: "AI Coach", icon: Sparkles, desc: "Get career guidance" },
+    { href: "/coach", label: "AI Coach", icon: FileText, desc: "Get career guidance" },
   ];
 
   return (
@@ -27,6 +29,8 @@ export function DashboardContent({ stats, analytics }: DashboardContentProps) {
         title="Dashboard"
         description="Your interview preparation overview, progress, and analytics in one place."
       />
+
+      <OnboardingBanner stats={stats} />
 
       <div className="grid gap-4 lg:grid-cols-4">
         <div className="surface-card flex flex-col items-center px-6 py-8 lg:col-span-1">
@@ -65,24 +69,23 @@ export function DashboardContent({ stats, analytics }: DashboardContentProps) {
           ) : (
             <div className="space-y-1">
               {stats.recentInterviews.map((interview) => (
-                <div
-                  key={interview.id}
-                  className="flex items-center justify-between rounded-lg px-3 py-3"
-                >
-                  <div>
-                    <p className="text-sm font-medium">
-                      {interview.company} — {interview.role}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(interview.createdAt), { addSuffix: true })}
-                    </p>
+                <Link key={interview.id} href={`/mock-interview/${interview.id}`}>
+                  <div className="flex items-center justify-between rounded-lg px-3 py-3 transition-colors hover:bg-muted/50">
+                    <div>
+                      <p className="text-sm font-medium">
+                        {interview.company} — {interview.role}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(interview.createdAt), { addSuffix: true })}
+                      </p>
+                    </div>
+                    {interview.overallScore !== null && (
+                      <Badge variant="secondary" className="tabular-nums">
+                        {interview.overallScore}%
+                      </Badge>
+                    )}
                   </div>
-                  {interview.overallScore !== null && (
-                    <Badge variant="secondary" className="tabular-nums">
-                      {interview.overallScore}%
-                    </Badge>
-                  )}
-                </div>
+                </Link>
               ))}
             </div>
           )}
@@ -98,7 +101,11 @@ export function DashboardContent({ stats, analytics }: DashboardContentProps) {
             <Link key={action.href} href={action.href}>
               <div className="surface-card-hover group flex items-center gap-3 p-4">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted transition-colors group-hover:bg-accent/10">
-                  <action.icon className="h-4 w-4 text-foreground" strokeWidth={1.75} />
+                  {action.href === "/coach" ? (
+                    <AiCoachIcon className="h-4 w-4" />
+                  ) : (
+                    <action.icon className="h-4 w-4 text-foreground" strokeWidth={1.75} />
+                  )}
                 </div>
                 <div>
                   <p className="text-sm font-medium">{action.label}</p>

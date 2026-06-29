@@ -7,7 +7,6 @@ import {
   FileText,
   MessageSquare,
   Code2,
-  Sparkles,
   Settings,
 } from "lucide-react";
 import {
@@ -21,13 +20,14 @@ import {
 } from "@/components/ui/command";
 import { useCommandPaletteStore } from "@/hooks/use-command-palette-store";
 import { NAV_ITEMS } from "@/lib/constants";
+import { AiCoachIcon } from "@/components/icons/ai-coach-icon";
 
 const ICON_MAP = {
   LayoutDashboard,
   FileText,
   MessageSquare,
   Code2,
-  Sparkles,
+  AiCoach: AiCoachIcon,
   Settings,
 } as const;
 

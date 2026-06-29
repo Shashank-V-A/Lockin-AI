@@ -6,12 +6,12 @@ import {
   Building2,
   Terminal,
   TrendingUp,
-  Bot,
   Download,
 } from "lucide-react";
 import { LANDING_FEATURES } from "@/lib/constants";
+import { AiCoachIcon } from "@/components/icons/ai-coach-icon";
 
-const ICONS = { FileSearch, Building2, Terminal, TrendingUp, Bot, Download };
+const ICONS = { FileSearch, Building2, Terminal, TrendingUp, AiCoach: AiCoachIcon, Download };
 
 /** Landing page features grid. */
 export function Features() {
@@ -41,7 +41,11 @@ export function Features() {
                 className="surface-card-hover p-6"
               >
                 <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-                  <Icon className="h-4 w-4 text-foreground" strokeWidth={1.75} />
+                  {feature.icon === "AiCoach" ? (
+                    <AiCoachIcon className="h-4 w-4" />
+                  ) : (
+                    <Icon className="h-4 w-4 text-foreground" strokeWidth={1.75} />
+                  )}
                 </div>
                 <h3 className="text-sm font-semibold tracking-tight">{feature.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">

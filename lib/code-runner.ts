@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { TestCase } from "@/types/coding";
 import { buildFunctionNames } from "@/lib/coding-problems-data";
+import { runPistonTests, AI_REVIEW_ONLY_LANGUAGES } from "@/lib/code-sandbox";
 
 const execFileAsync = promisify(execFile);
 
@@ -40,6 +41,19 @@ export async function runCodeTests(params: {
     return unsupportedLanguageResult(params.testCases, start);
   }
 
+  if (AI_REVIEW_ONLY_LANGUAGES.has(params.language)) {
+    return aiReviewOnlyResult(params.testCases, start);
+  }
+
+  const pistonResult = await runPistonTests({
+    code: params.code,
+    language: params.language,
+    fnName,
+    testCases: params.testCases,
+    start,
+  });
+  if (pistonResult) return pistonResult;
+
   if (params.language === "python") {
     return runPythonTests(params.code, fnName, params.testCases, start);
   }
@@ -48,7 +62,25 @@ export async function runCodeTests(params: {
     return runJavaScriptTests(params.code, fnName, params.testCases, start);
   }
 
-  return runStaticAnalysis(params.code, params.testCases, start);
+  return unsupportedLanguageResult(params.testCases, start);
+}
+
+/** Java/C++ submissions receive AI feedback only — no live test execution. */
+function aiReviewOnlyResult(testCases: TestCase[], start: number): ExecutionResult {
+  return {
+    status: "FAILED",
+    passedTests: 0,
+    totalTests: testCases.length,
+    testResults: testCases.map((tc) => ({
+      passed: false,
+      input: tc.input,
+      expected: tc.expectedOutput,
+      error: "Live test execution is available for Python and JavaScript. Submit for AI code review.",
+    })),
+    runtime: Date.now() - start,
+    memory: 0,
+    compileError: "AI review only for this language. Use Python or JavaScript to run tests.",
+  };
 }
 
 /** Executes Python solutions against test cases. */
@@ -229,42 +261,6 @@ function runJavaScriptTests(
   return buildResult(testResults, testCases.length, start);
 }
 
-/** Basic static checks for Java/C++ when runtime execution is unavailable. */
-function runStaticAnalysis(
-  code: string,
-  testCases: TestCase[],
-  start: number,
-): ExecutionResult {
-  const hasReturn = code.includes("return");
-  const stripped = code.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, "").trim();
-
-  if (!hasReturn || stripped.length < 40) {
-    return {
-      status: "ERROR",
-      passedTests: 0,
-      totalTests: testCases.length,
-      testResults: testCases.map((tc) => ({
-        passed: false,
-        input: tc.input,
-        expected: tc.expectedOutput,
-        error: "Incomplete solution — add your logic and return a value.",
-      })),
-      runtime: Date.now() - start,
-      memory: 0,
-      compileError: "Incomplete solution.",
-    };
-  }
-
-  const testResults = testCases.map((tc) => ({
-    passed: true,
-    input: tc.input,
-    expected: tc.expectedOutput,
-    actual: tc.expectedOutput,
-  }));
-
-  return buildResult(testResults, testCases.length, start);
-}
-
 function buildResult(testResults: TestResult[], totalTests: number, start: number): ExecutionResult {
   const passedTests = testResults.filter((r) => r.passed).length;
   const allErrored = passedTests === 0 && testResults.every((r) => r.error && !r.actual);
@@ -275,7 +271,7 @@ function buildResult(testResults: TestResult[], totalTests: number, start: numbe
     totalTests,
     testResults,
     runtime: Date.now() - start,
-    memory: Math.floor(1024 + Math.random() * 4096),
+    memory: 0,
   };
 }
 

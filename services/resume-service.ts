@@ -74,6 +74,54 @@ export async function getResumeById(userId: string, resumeId: string) {
   });
 }
 
+/** Gets latest completed resume for a user. */
+export async function getLatestResumeForUser(userId: string) {
+  return prisma.resume.findFirst({
+    where: { userId, status: "COMPLETED" },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+/** Deletes a resume and clears raw text. */
+export async function deleteResume(userId: string, resumeId: string) {
+  const resume = await prisma.resume.findFirst({
+    where: { id: resumeId, userId },
+  });
+  if (!resume) throw new Error("Resume not found");
+
+  await prisma.resume.delete({ where: { id: resumeId } });
+}
+
+/** Exports user data for GDPR-style download. */
+export async function exportUserData(userId: string) {
+  const [user, resumes, interviews, submissions, coachMessages] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true, email: true, createdAt: true },
+    }),
+    prisma.resume.findMany({
+      where: { userId },
+      select: { fileName: true, atsScore: true, status: true, createdAt: true, analysis: true },
+    }),
+    prisma.interviewSession.findMany({
+      where: { userId },
+      select: { company: true, role: true, overallScore: true, status: true, createdAt: true },
+    }),
+    prisma.codingSubmission.findMany({
+      where: { userId },
+      select: { language: true, score: true, status: true, createdAt: true },
+      take: 100,
+    }),
+    prisma.coachMessage.findMany({
+      where: { userId },
+      select: { role: true, content: true, createdAt: true },
+      take: 200,
+    }),
+  ]);
+
+  return { user, resumes, interviews, submissions, coachMessages };
+}
+
 /** Gets latest resume score for dashboard. */
 export async function getLatestResumeScore(userId: string): Promise<number> {
   const resume = await prisma.resume.findFirst({

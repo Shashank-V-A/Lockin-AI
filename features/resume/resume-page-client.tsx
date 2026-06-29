@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ResumeUploadDropzone } from "@/components/resume-upload-dropzone";
-import { saveAndAnalyzeResume } from "@/actions/resume-actions";
+import { saveAndAnalyzeResume, removeResume } from "@/actions/resume-actions";
 import { fetchResumeReportAnalytics } from "@/actions/analytics-actions";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
-import { Download, FileText, Loader2 } from "lucide-react";
+import { Download, FileText, Loader2, Trash2 } from "lucide-react";
 import type { ResumeAnalysis } from "@/types/resume";
 import { getUploadFileUrl } from "@/lib/pdf-extract";
 import { cn } from "@/lib/utils";
@@ -38,6 +38,7 @@ export function ResumePageClient({ resumes }: ResumePageClientProps) {
   const router = useRouter();
   const [analyzing, setAnalyzing] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [selectedId, setSelectedId] = useState(resumes[0]?.id ?? "");
 
   const handleUploadComplete = async (files: UploadedFile[]) => {
     const file = files[0];
@@ -79,17 +80,28 @@ export function ResumePageClient({ resumes }: ResumePageClientProps) {
     }
   };
 
-  const latest = resumes[0];
-  const analysis = latest?.analysis as ResumeAnalysis | null;
+  const selected = resumes.find((r) => r.id === selectedId) ?? resumes[0];
+  const analysis = selected?.analysis as ResumeAnalysis | null;
+
+  const handleDelete = async (resumeId: string) => {
+    if (!confirm("Delete this resume and its analysis?")) return;
+    try {
+      await removeResume(resumeId);
+      toast.success("Resume deleted");
+      router.refresh();
+    } catch {
+      toast.error("Failed to delete resume");
+    }
+  };
 
   const handleDownloadReport = async () => {
-    if (!latest || !analysis) return;
+    if (!selected || !analysis) return;
 
     setDownloading(true);
     try {
       const analytics = await fetchResumeReportAnalytics();
       const { generateResumePDF } = await import("@/lib/pdf");
-      await generateResumePDF(latest.fileName, analysis, analytics);
+      await generateResumePDF(selected.fileName, analysis, analytics);
     } catch {
       toast.error("Failed to generate report");
     } finally {
@@ -107,7 +119,7 @@ export function ResumePageClient({ resumes }: ResumePageClientProps) {
       <div className="surface-card">
         <div className="border-b border-border px-5 py-4">
           <h2 className="text-sm font-semibold tracking-tight">Upload Resume</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">PDF format, up to 4MB</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">PDF format, up to 8MB</p>
         </div>
         <div className="p-5">
           {analyzing ? (
@@ -126,7 +138,33 @@ export function ResumePageClient({ resumes }: ResumePageClientProps) {
         </div>
       </div>
 
-      {latest && analysis && latest.status === "COMPLETED" && (
+      {resumes.length > 0 && (
+        <div className="surface-card p-4">
+          <h2 className="text-sm font-semibold tracking-tight">Resume history</h2>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {resumes.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => setSelectedId(r.id)}
+                className={cn(
+                  "rounded-lg border px-3 py-2 text-left text-xs transition-colors",
+                  selected?.id === r.id
+                    ? "border-accent/40 bg-accent/10"
+                    : "border-border hover:bg-muted/50",
+                )}
+              >
+                <p className="font-medium">{r.fileName}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {r.status === "COMPLETED" && r.atsScore != null ? `ATS ${r.atsScore}` : r.status}
+                </p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {selected && analysis && selected.status === "COMPLETED" && (
         <>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -134,14 +172,18 @@ export function ResumePageClient({ resumes }: ResumePageClientProps) {
                 <FileText className="h-4 w-4 text-muted-foreground" />
               </div>
               <div>
-                <p className="text-sm font-medium">{latest.fileName}</p>
-                <p className="text-xs text-muted-foreground">Latest analysis</p>
+                <p className="text-sm font-medium">{selected.fileName}</p>
+                <p className="text-xs text-muted-foreground">Analysis</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="accent" className="tabular-nums text-sm">
-                ATS {latest.atsScore}
+                ATS {selected.atsScore}
               </Badge>
+              <Button variant="outline" size="sm" onClick={() => handleDelete(selected.id)}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
               <Button
                 variant="outline"
                 size="sm"

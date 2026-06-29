@@ -10,9 +10,13 @@ import {
   getUserSubmissions,
   getCodingProgress,
 } from "@/services/coding-service";
+import { codeSubmissionSchema } from "@/lib/validations";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 /** Fetches all coding problems. */
 export async function fetchCodingProblems() {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
   return getCodingProblems();
 }
 
@@ -29,6 +33,8 @@ export async function runCode(params: {
 }) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
+  await enforceRateLimit(session.user.id, "coding-run");
+  codeSubmissionSchema.parse(params.code);
   return runCodingSolution(params);
 }
 
@@ -40,6 +46,8 @@ export async function submitCode(params: {
 }) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
+  await enforceRateLimit(session.user.id, "coding");
+  codeSubmissionSchema.parse(params.code);
 
   const result = await submitCodingSolution({
     userId: session.user.id,

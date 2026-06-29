@@ -46,7 +46,7 @@ export const NAV_ITEMS = [
   { href: "/resume", label: "Resume", icon: "FileText" },
   { href: "/mock-interview", label: "Mock Interview", icon: "MessageSquare" },
   { href: "/coding", label: "Coding", icon: "Code2" },
-  { href: "/coach", label: "AI Coach", icon: "Sparkles" },
+  { href: "/coach", label: "AI Coach", icon: "AiCoach" },
   { href: "/settings", label: "Settings", icon: "Settings" },
 ] as const;
 
@@ -79,7 +79,7 @@ export const LANDING_FEATURES = [
     title: "AI Coach",
     description:
       "Get personalized career guidance, interview tips, and resume advice anytime.",
-    icon: "Bot",
+    icon: "AiCoach",
   },
   {
     title: "Detailed Reports",

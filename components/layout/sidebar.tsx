@@ -7,7 +7,6 @@ import {
   FileText,
   MessageSquare,
   Code2,
-  Sparkles,
   Settings,
   PanelLeftClose,
   PanelLeft,
@@ -17,13 +16,14 @@ import { NAV_ITEMS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { useSidebarStore } from "@/hooks/use-sidebar-store";
 import { Logo } from "@/components/layout/logo";
+import { AiCoachIcon } from "@/components/icons/ai-coach-icon";
 
 const ICON_MAP = {
   LayoutDashboard,
   FileText,
   MessageSquare,
   Code2,
-  Sparkles,
+  AiCoach: AiCoachIcon,
   Settings,
 } as const;
 
@@ -66,7 +66,7 @@ export function Sidebar() {
               {active && (
                 <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-accent" />
               )}
-              <Icon className={cn("h-4 w-4 shrink-0", active && "text-accent")} />
+              <Icon className={cn("h-4 w-4 shrink-0", active && item.icon !== "AiCoach" && "text-accent")} />
               {!collapsed && <span>{item.label}</span>}
             </Link>
           );

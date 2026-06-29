@@ -4,7 +4,21 @@ import {
   evaluateAnswer,
   generateInterviewReport,
 } from "@/services/ai-service";
+import { getLatestResumeForUser } from "@/services/resume-service";
 import type { AnswerEvaluation, InterviewReport } from "@/types/interview";
+
+/** Verifies session ownership and in-progress status. */
+async function getOwnedSession(sessionId: string, userId: string) {
+  const session = await prisma.interviewSession.findFirst({
+    where: { id: sessionId, userId },
+    include: {
+      questions: { orderBy: { order: "asc" } },
+      answers: true,
+    },
+  });
+  if (!session) throw new Error("Session not found");
+  return session;
+}
 
 /** Creates a new mock interview session with AI-generated questions. */
 export async function createInterviewSession(params: {
@@ -14,11 +28,15 @@ export async function createInterviewSession(params: {
   experience: string;
   difficulty: "EASY" | "MEDIUM" | "HARD";
 }) {
+  const resume = await getLatestResumeForUser(params.userId);
+  const resumeContext = resume?.rawText?.slice(0, 3000);
+
   const questions = await generateInterviewQuestions({
     company: params.company,
     role: params.role,
     experience: params.experience,
     difficulty: params.difficulty,
+    resumeContext,
   });
 
   return prisma.interviewSession.create({
@@ -40,8 +58,9 @@ export async function createInterviewSession(params: {
   });
 }
 
-/** Submits and evaluates an interview answer. */
+/** Submits and evaluates an interview answer (ownership verified). */
 export async function submitInterviewAnswer(params: {
+  userId: string;
   sessionId: string;
   questionId: string;
   answer: string;
@@ -49,6 +68,17 @@ export async function submitInterviewAnswer(params: {
   role: string;
   question: string;
 }) {
+  const session = await getOwnedSession(params.sessionId, params.userId);
+  if (session.status !== "IN_PROGRESS") {
+    throw new Error("Interview session is not active");
+  }
+
+  const question = session.questions.find((q) => q.id === params.questionId);
+  if (!question) throw new Error("Question not found");
+
+  const existing = session.answers.find((a) => a.questionId === params.questionId);
+  if (existing) throw new Error("Question already answered");
+
   const evaluation = await evaluateAnswer({
     question: params.question,
     answer: params.answer,
@@ -71,17 +101,55 @@ export async function submitInterviewAnswer(params: {
   });
 }
 
-/** Completes session and generates final report. */
-export async function completeInterviewSession(sessionId: string) {
-  const session = await prisma.interviewSession.findUnique({
-    where: { id: sessionId },
-    include: {
-      questions: { orderBy: { order: "asc" } },
-      answers: true,
+/** Skips current question without scoring. */
+export async function skipInterviewQuestion(params: {
+  userId: string;
+  sessionId: string;
+  questionId: string;
+}) {
+  const session = await getOwnedSession(params.sessionId, params.userId);
+  if (session.status !== "IN_PROGRESS") throw new Error("Interview session is not active");
+
+  const question = session.questions.find((q) => q.id === params.questionId);
+  if (!question) throw new Error("Question not found");
+
+  const existing = session.answers.find((a) => a.questionId === params.questionId);
+  if (existing) throw new Error("Question already answered");
+
+  return prisma.interviewAnswer.create({
+    data: {
+      sessionId: params.sessionId,
+      questionId: params.questionId,
+      answer: "[Skipped]",
+      technicalAccuracy: 0,
+      communication: 0,
+      confidence: 0,
+      completeness: 0,
+      overallScore: 0,
+      feedback: "Question was skipped.",
     },
   });
+}
 
+/** Marks session as abandoned. */
+export async function abandonInterviewSession(sessionId: string, userId: string) {
+  const session = await prisma.interviewSession.findFirst({
+    where: { id: sessionId, userId, status: "IN_PROGRESS" },
+  });
   if (!session) throw new Error("Session not found");
+
+  return prisma.interviewSession.update({
+    where: { id: sessionId },
+    data: { status: "ABANDONED" },
+  });
+}
+
+/** Completes session and generates final report (ownership verified). */
+export async function completeInterviewSession(sessionId: string, userId: string) {
+  const session = await getOwnedSession(sessionId, userId);
+  if (session.status !== "IN_PROGRESS") {
+    throw new Error("Interview session is not active");
+  }
 
   const qaPairs = session.questions.map((q) => {
     const answer = session.answers.find((a) => a.questionId === q.id);

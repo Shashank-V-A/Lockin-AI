@@ -2,14 +2,15 @@
 
 import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { sendCoachMessage, clearCoachHistory } from "@/actions/coach-actions";
+import { clearCoachHistory } from "@/actions/coach-actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/layout/page-header";
 import { toast } from "sonner";
-import { Loader2, Send, Trash2, Bot, User, Sparkles } from "lucide-react";
+import { Send, Trash2, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AiCoachIcon } from "@/components/icons/ai-coach-icon";
 
 const CoachMarkdown = dynamic(
   () => import("@/components/coach/coach-markdown").then((m) => m.CoachMarkdown),
@@ -57,16 +58,68 @@ export function CoachChat({ initialMessages }: CoachChatProps) {
       createdAt: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    const assistantId = `stream-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      userMsg,
+      { id: assistantId, role: "assistant", content: "", createdAt: new Date() },
+    ]);
     setInput("");
     setLoading(true);
 
     try {
-      const response = await sendCoachMessage(text.trim());
-      setMessages((prev) => [...prev, response]);
-    } catch {
-      toast.error("Failed to get response");
-      setMessages((prev) => prev.filter((m) => m.id !== userMsg.id));
+      const res = await fetch("/api/coach/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text.trim() }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error ?? "Failed to get response");
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No response stream");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = JSON.parse(line.slice(6)) as {
+            delta?: string;
+            done?: boolean;
+            id?: string;
+            error?: string;
+          };
+
+          if (payload.error) throw new Error(payload.error);
+          if (payload.delta) {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId ? { ...m, content: m.content + payload.delta } : m,
+              ),
+            );
+          }
+          if (payload.done && payload.id) {
+            setMessages((prev) =>
+              prev.map((m) => (m.id === assistantId ? { ...m, id: payload.id! } : m)),
+            );
+          }
+        }
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to get response");
+      setMessages((prev) => prev.filter((m) => m.id !== userMsg.id && m.id !== assistantId));
       setInput(text.trim());
     } finally {
       setLoading(false);
@@ -100,7 +153,7 @@ export function CoachChat({ initialMessages }: CoachChatProps) {
           {messages.length === 0 ? (
             <div className="flex min-h-full flex-col items-center justify-center py-12 text-center">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10">
-                <Sparkles className="h-5 w-5 text-accent" strokeWidth={1.75} />
+                <AiCoachIcon className="h-5 w-5" />
               </div>
               <p className="mt-4 text-sm font-medium">What can I help you with?</p>
               <p className="mt-1 max-w-md text-xs text-muted-foreground">
@@ -133,7 +186,7 @@ export function CoachChat({ initialMessages }: CoachChatProps) {
                 >
                   {msg.role === "assistant" && (
                     <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent/10">
-                      <Bot className="h-3.5 w-3.5 text-accent" strokeWidth={1.75} />
+                      <AiCoachIcon className="h-4 w-4" />
                     </div>
                   )}
                   <div
@@ -160,7 +213,7 @@ export function CoachChat({ initialMessages }: CoachChatProps) {
               {loading && (
                 <div className="flex gap-3">
                   <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />
+                    <AiCoachIcon className="h-4 w-4 animate-pulse" />
                   </div>
                   <div className="rounded-xl bg-muted/60 px-4 py-3 text-sm text-muted-foreground">
                     Thinking...
