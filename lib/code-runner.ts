@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { TestCase } from "@/types/coding";
 import { buildFunctionNames } from "@/lib/coding-problems-data";
-import { runSandboxTests, AI_REVIEW_ONLY_LANGUAGES } from "@/lib/code-sandbox";
+import { runSandboxTests } from "@/lib/code-sandbox";
 
 const execFileAsync = promisify(execFile);
 
@@ -41,18 +41,14 @@ export async function runCodeTests(params: {
     return unsupportedLanguageResult(params.testCases, start);
   }
 
-  if (AI_REVIEW_ONLY_LANGUAGES.has(params.language)) {
-    return aiReviewOnlyResult(params.testCases, start);
-  }
-
-  const pistonResult = await runSandboxTests({
+  const sandboxResult = await runSandboxTests({
     code: params.code,
     language: params.language,
     fnName,
     testCases: params.testCases,
     start,
   });
-  if (pistonResult) return pistonResult;
+  if (sandboxResult) return sandboxResult;
 
   if (params.language === "python") {
     return runPythonTests(params.code, fnName, params.testCases, start);
@@ -62,24 +58,32 @@ export async function runCodeTests(params: {
     return runJavaScriptTests(params.code, fnName, params.testCases, start);
   }
 
-  return unsupportedLanguageResult(params.testCases, start);
+  return sandboxUnavailableResult(params.language, params.testCases, start);
 }
 
-/** Java/C++ submissions receive AI feedback only — no live test execution. */
-function aiReviewOnlyResult(testCases: TestCase[], start: number): ExecutionResult {
+function sandboxUnavailableResult(
+  language: string,
+  testCases: TestCase[],
+  start: number,
+): ExecutionResult {
+  const msg =
+    language === "java" || language === "cpp"
+      ? "Java/C++ execution requires the sandbox (PISTON_API_URL). Defaults to emkc.org — check network or run docker compose up piston."
+      : "Code execution service unavailable.";
+
   return {
-    status: "FAILED",
+    status: "ERROR",
     passedTests: 0,
     totalTests: testCases.length,
     testResults: testCases.map((tc) => ({
       passed: false,
       input: tc.input,
       expected: tc.expectedOutput,
-      error: "Live test execution is available for Python and JavaScript. Submit for AI code review.",
+      error: msg,
     })),
     runtime: Date.now() - start,
     memory: 0,
-    compileError: "AI review only for this language. Use Python or JavaScript to run tests.",
+    compileError: msg,
   };
 }
 
@@ -284,7 +288,7 @@ function unsupportedLanguageResult(testCases: TestCase[], start: number): Execut
       passed: false,
       input: tc.input,
       expected: tc.expectedOutput,
-      error: "Full test execution is available for Python and JavaScript.",
+      error: "Unknown problem or language configuration.",
     })),
     runtime: Date.now() - start,
     memory: 0,

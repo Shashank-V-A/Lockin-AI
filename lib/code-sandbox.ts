@@ -1,9 +1,16 @@
 import type { TestCase } from "@/types/coding";
 import type { ExecutionResult, TestResult } from "@/lib/code-runner";
+import {
+  buildPythonScript,
+  buildJsScript,
+  buildJavaHarnessScript,
+  buildCppScript,
+} from "@/lib/code-harness";
 
-const PISTON_URL = process.env.PISTON_API_URL ?? "https://emkc.org/api/v2/piston";
+const PUBLIC_PISTON_URL = "https://emkc.org/api/v2/piston";
+const PISTON_URL = process.env.PISTON_API_URL ?? PUBLIC_PISTON_URL;
 const JUDGE0_URL = process.env.JUDGE0_API_URL;
-const CODE_RUNNER = process.env.CODE_RUNNER ?? "auto"; // auto | piston | judge0 | local
+const CODE_RUNNER = process.env.CODE_RUNNER ?? "auto";
 
 const PISTON_LANG: Record<string, string> = {
   python: "python",
@@ -19,6 +26,8 @@ const JUDGE0_LANG: Record<string, number> = {
   cpp: 54,
 };
 
+const SANDBOX_LANGUAGES = new Set(["python", "javascript", "java", "cpp"]);
+
 /** Runs tests via configured sandbox (Judge0 → Piston → null for local fallback). */
 export async function runSandboxTests(params: {
   code: string;
@@ -27,6 +36,7 @@ export async function runSandboxTests(params: {
   testCases: TestCase[];
   start: number;
 }): Promise<ExecutionResult | null> {
+  if (!SANDBOX_LANGUAGES.has(params.language)) return null;
   if (process.env.DISABLE_PISTON === "true" && !JUDGE0_URL) return null;
 
   const preferJudge0 = CODE_RUNNER === "judge0" || (CODE_RUNNER === "auto" && JUDGE0_URL);
@@ -38,19 +48,28 @@ export async function runSandboxTests(params: {
   }
 
   if (preferPiston && process.env.DISABLE_PISTON !== "true") {
-    return executePistonTests(params);
+    const result = await executePistonTests(params);
+    if (result) return result;
+
+    // Fall back to public Piston when a local/self-hosted URL is unreachable
+    if (PISTON_URL !== PUBLIC_PISTON_URL) {
+      return executePistonTests(params, PUBLIC_PISTON_URL);
+    }
   }
 
   return null;
 }
 
-async function executePistonTests(params: {
-  code: string;
-  language: string;
-  fnName: string;
-  testCases: TestCase[];
-  start: number;
-}): Promise<ExecutionResult | null> {
+async function executePistonTests(
+  params: {
+    code: string;
+    language: string;
+    fnName: string;
+    testCases: TestCase[];
+    start: number;
+  },
+  baseUrl: string = PISTON_URL,
+): Promise<ExecutionResult | null> {
   const pistonLang = PISTON_LANG[params.language];
   if (!pistonLang) return null;
 
@@ -59,16 +78,17 @@ async function executePistonTests(params: {
   for (const test of params.testCases) {
     const script = buildScript(params.language, params.fnName, params.code, test);
     try {
-      const res = await fetch(`${PISTON_URL}/execute`, {
+      const res = await fetch(`${baseUrl.replace(/\/$/, "")}/execute`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           language: pistonLang,
           version: "*",
           files: [{ content: script }],
-          run_timeout: 5000,
+          run_timeout: 8000,
+          compile_timeout: 10000,
         }),
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(20000),
       });
 
       if (!res.ok) return null;
@@ -91,7 +111,7 @@ async function executePistonTests(params: {
         input: test.input,
         expected: test.expectedOutput,
         actual: stdout || undefined,
-        error: passed ? undefined : stderr || `Expected ${test.expectedOutput}, got ${stdout}`,
+        error: passed ? undefined : stderr || `Expected ${test.expectedOutput}, got ${stdout || "(empty)"}`,
       });
     } catch {
       return null;
@@ -127,9 +147,9 @@ async function runJudge0Tests(params: {
         body: JSON.stringify({
           source_code: script,
           language_id: langId,
-          cpu_time_limit: 5,
+          cpu_time_limit: 8,
         }),
-        signal: AbortSignal.timeout(20000),
+        signal: AbortSignal.timeout(25000),
       });
 
       if (!res.ok) return null;
@@ -138,7 +158,6 @@ async function runJudge0Tests(params: {
         stdout?: string | null;
         stderr?: string | null;
         compile_output?: string | null;
-        status?: { id: number; description: string };
       };
 
       if (data.compile_output) {
@@ -153,7 +172,7 @@ async function runJudge0Tests(params: {
         input: test.input,
         expected: test.expectedOutput,
         actual: stdout || undefined,
-        error: passed ? undefined : data.stderr ?? `Expected ${test.expectedOutput}, got ${stdout}`,
+        error: passed ? undefined : data.stderr ?? `Expected ${test.expectedOutput}, got ${stdout || "(empty)"}`,
       });
     } catch {
       return null;
@@ -164,19 +183,26 @@ async function runJudge0Tests(params: {
 }
 
 function buildScript(language: string, fnName: string, code: string, test: TestCase): string {
-  if (language === "python") {
-    return `${code}\nimport json\nresult = ${fnName}(${test.input})\nprint(json.dumps(result) if not isinstance(result, (int, float, bool)) else result)`;
+  switch (language) {
+    case "python":
+      return buildPythonScript(code, fnName, test);
+    case "javascript":
+      return buildJsScript(code, fnName, test);
+    case "java":
+      return buildJavaHarnessScript(code, fnName, test);
+    case "cpp":
+      return buildCppScript(code, fnName, test);
+    default:
+      return code;
   }
-  if (language === "javascript") {
-    return `${code}\nconst result = ${fnName}(${test.input});\nconsole.log(typeof result === "object" ? JSON.stringify(result) : String(result));`;
-  }
-  return code;
 }
 
 function buildResult(testResults: TestResult[], total: number, start: number): ExecutionResult {
   const passedTests = testResults.filter((r) => r.passed).length;
+  const allErrored = passedTests === 0 && testResults.every((r) => r.error && !r.actual);
+
   return {
-    status: passedTests === total ? "PASSED" : "FAILED",
+    status: passedTests === total ? "PASSED" : allErrored ? "ERROR" : "FAILED",
     passedTests,
     totalTests: total,
     testResults,
@@ -202,4 +228,5 @@ function compileErrorResult(testCases: TestCase[], error: string, start: number)
   };
 }
 
-export const AI_REVIEW_ONLY_LANGUAGES = new Set(["java", "cpp"]);
+/** @deprecated All supported languages run via sandbox or local runner. */
+export const AI_REVIEW_ONLY_LANGUAGES = new Set<string>();

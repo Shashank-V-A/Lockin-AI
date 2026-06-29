@@ -39,6 +39,9 @@ export async function POST(request: Request) {
     if (error instanceof Error && error.name === "RateLimitError") {
       return NextResponse.json({ error: error.message }, { status: 429 });
     }
+    if (error instanceof Error && error.message.includes("File URL")) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.error("PDF extraction error:", error);
     return NextResponse.json({ error: "Failed to extract PDF text" }, { status: 500 });
   }

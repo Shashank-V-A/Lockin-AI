@@ -1,4 +1,17 @@
-const ALLOWED_UPLOAD_HOSTS = new Set(["utfs.io", "uploadthing.com", "uploadthing-prod.s3.us-west-2.amazonaws.com"]);
+/** Hosts UploadThing uses to serve uploaded files (CDN + legacy). */
+const ALLOWED_UPLOAD_HOST_SUFFIXES = [
+  "ufs.sh",
+  "utfs.io",
+  "uploadthing.com",
+  "uploadthing-prod.s3.us-west-2.amazonaws.com",
+];
+
+function isAllowedUploadHost(host: string): boolean {
+  const normalized = host.toLowerCase();
+  return ALLOWED_UPLOAD_HOST_SUFFIXES.some(
+    (suffix) => normalized === suffix || normalized.endsWith(`.${suffix}`),
+  );
+}
 
 /** Validates that a URL is safe to fetch server-side (SSRF protection). */
 export function assertSafeFileUrl(fileUrl: string): void {
@@ -14,11 +27,8 @@ export function assertSafeFileUrl(fileUrl: string): void {
   }
 
   const host = parsed.hostname.toLowerCase();
-  const allowed = [...ALLOWED_UPLOAD_HOSTS].some(
-    (h) => host === h || host.endsWith(`.${h}`),
-  );
 
-  if (!allowed) {
+  if (!isAllowedUploadHost(host)) {
     throw new Error("File URL must be from an allowed upload host");
   }
 

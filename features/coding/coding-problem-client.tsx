@@ -1,9 +1,9 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { submitCode, runCode, revealCodingHint, revealCodingSolution } from "@/actions/coding-actions";
+import { CodeEditor } from "@/components/coding/code-editor";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -29,12 +29,6 @@ import {
 import type { CodingFeedback } from "@/types/coding";
 import type { TestResult } from "@/lib/code-runner";
 import { cn } from "@/lib/utils";
-import { Skeleton } from "@/components/ui/skeleton";
-
-const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
-  ssr: false,
-  loading: () => <Skeleton className="h-full min-h-[240px] w-full rounded-lg sm:min-h-[320px]" />,
-});
 
 interface ResultState {
   runtime: number;
@@ -330,14 +324,8 @@ export function CodingProblemClient({ problem }: CodingProblemClientProps) {
             </div>
           </div>
 
-          {(language === "java" || language === "cpp") && (
-            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
-              Java and C++ use AI code review on submit. Use Python or JavaScript to run tests live.
-            </p>
-          )}
-
           <div className="overflow-hidden rounded-xl border border-border shadow-soft">
-            <MonacoEditor
+            <CodeEditor
               height={`${editorHeight}px`}
               language={CODING_LANGUAGES.find((l) => l.id === language)?.monaco ?? "python"}
               value={code}
