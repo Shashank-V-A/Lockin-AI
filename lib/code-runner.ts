@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { TestCase } from "@/types/coding";
 import { buildFunctionNames } from "@/lib/coding-problems-data";
-import { runPistonTests, AI_REVIEW_ONLY_LANGUAGES } from "@/lib/code-sandbox";
+import { runSandboxTests, AI_REVIEW_ONLY_LANGUAGES } from "@/lib/code-sandbox";
 
 const execFileAsync = promisify(execFile);
 
@@ -45,7 +45,7 @@ export async function runCodeTests(params: {
     return aiReviewOnlyResult(params.testCases, start);
   }
 
-  const pistonResult = await runPistonTests({
+  const pistonResult = await runSandboxTests({
     code: params.code,
     language: params.language,
     fnName,

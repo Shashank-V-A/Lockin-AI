@@ -95,6 +95,8 @@ model InterviewSession {
   status       InterviewStatus @default(IN_PROGRESS)
   overallScore Int?
   report       Json?
+  remainingSeconds Int           @default(2700)
+  isPaused     Boolean         @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   completedAt  DateTime?
@@ -161,6 +163,7 @@ model CodingProblem {
   starterCode Json
   testCases   Json
   solution    String?    @db.Text
+  hint        String?    @db.Text
   timeLimit   Int        @default(30)
   createdAt   DateTime   @default(now())
 

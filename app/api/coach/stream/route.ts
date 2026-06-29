@@ -18,12 +18,17 @@ export async function POST(request: Request) {
   try {
     await enforceRateLimit(userId, "coach");
 
-    const { message } = (await request.json()) as { message?: string };
+    const { message, skipUserMessage } = (await request.json()) as {
+      message?: string;
+      skipUserMessage?: boolean;
+    };
     const content = coachMessageSchema.parse(message);
 
-    await prisma.coachMessage.create({
-      data: { userId, role: "user", content },
-    });
+    if (!skipUserMessage) {
+      await prisma.coachMessage.create({
+        data: { userId, role: "user", content },
+      });
+    }
 
     const history = await prisma.coachMessage.findMany({
       where: { userId },

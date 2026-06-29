@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "format": "prettier --write .",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
@@ -60,6 +61,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pdf-parse": "^1.1.5",

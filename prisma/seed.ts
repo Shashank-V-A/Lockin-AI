@@ -16,10 +16,13 @@ async function main() {
 
   for (const problem of CODING_PROBLEMS) {
     const { fnPython: _fp, fnJs: _fj, fnJava: _fja, ...data } = problem;
+    const hintSentence = data.solution.split(/[.!?]/)[0]?.trim();
+    const hint = hintSentence ? `${hintSentence}.` : null;
+    const payload = { ...data, hint };
     await prisma.codingProblem.upsert({
       where: { slug: problem.slug },
-      update: data,
-      create: data,
+      update: payload,
+      create: payload,
     });
   }
 

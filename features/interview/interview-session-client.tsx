@@ -1,14 +1,22 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { submitAnswer, finishInterview, skipQuestion, abandonInterview } from "@/actions/interview-actions";
+import {
+  submitAnswer,
+  finishInterview,
+  skipQuestion,
+  abandonInterview,
+  pauseInterview,
+  resumeInterview,
+  syncInterviewTime,
+} from "@/actions/interview-actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { Clock, Loader2, SkipForward } from "lucide-react";
+import { Clock, Loader2, SkipForward, Pause, Play, Download } from "lucide-react";
 import type { InterviewReport } from "@/types/interview";
 
 const SESSION_MINUTES = 45;
@@ -21,6 +29,8 @@ interface InterviewSessionClientProps {
     status: string;
     overallScore: number | null;
     report: unknown;
+    remainingSeconds: number;
+    isPaused: boolean;
     questions: { id: string; order: number; question: string; category: string }[];
     answers: {
       questionId: string;
@@ -34,7 +44,7 @@ interface InterviewSessionClientProps {
   };
 }
 
-/** Active mock interview session UI. */
+/** Active mock interview session UI with pause/resume. */
 export function InterviewSessionClient({ session }: InterviewSessionClientProps) {
   const router = useRouter();
   const answeredIds = new Set(session.answers.map((a) => a.questionId));
@@ -44,7 +54,10 @@ export function InterviewSessionClient({ session }: InterviewSessionClientProps)
 
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(SESSION_MINUTES * 60);
+  const [secondsLeft, setSecondsLeft] = useState(session.remainingSeconds ?? SESSION_MINUTES * 60);
+  const [isPaused, setIsPaused] = useState(session.isPaused);
+  const [downloading, setDownloading] = useState(false);
+  const syncRef = useRef(0);
   const [lastEval, setLastEval] = useState<{
     overallScore: number;
     feedback: string;
@@ -63,7 +76,7 @@ export function InterviewSessionClient({ session }: InterviewSessionClientProps)
   }, [session.id, router]);
 
   useEffect(() => {
-    if (isComplete || session.status !== "IN_PROGRESS") return;
+    if (isComplete || session.status !== "IN_PROGRESS" || isPaused) return;
 
     const interval = setInterval(() => {
       setSecondsLeft((s) => {
@@ -78,10 +91,52 @@ export function InterviewSessionClient({ session }: InterviewSessionClientProps)
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isComplete, session.status, handleFinish]);
+  }, [isComplete, session.status, isPaused, handleFinish]);
+
+  useEffect(() => {
+    if (isComplete || isPaused) return;
+    const now = Date.now();
+    if (now - syncRef.current < 30000) return;
+    syncRef.current = now;
+    syncInterviewTime(session.id, secondsLeft).catch(() => {});
+  }, [secondsLeft, isComplete, isPaused, session.id]);
 
   const formatTime = (s: number) =>
     `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+  const handlePause = async () => {
+    try {
+      await pauseInterview(session.id, secondsLeft);
+      setIsPaused(true);
+      toast.info("Interview paused");
+    } catch {
+      toast.error("Failed to pause");
+    }
+  };
+
+  const handleResume = async () => {
+    try {
+      await resumeInterview(session.id);
+      setIsPaused(false);
+      toast.success("Interview resumed");
+    } catch {
+      toast.error("Failed to resume");
+    }
+  };
+
+  const handleDownloadReport = async () => {
+    const report = session.report as InterviewReport | null;
+    if (!report || session.overallScore === null) return;
+    setDownloading(true);
+    try {
+      const { generateInterviewPDF } = await import("@/lib/pdf");
+      await generateInterviewPDF(session.company, session.role, session.overallScore, report);
+    } catch {
+      toast.error("Failed to generate PDF");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!currentQuestion || !answer.trim()) return;
@@ -159,11 +214,23 @@ export function InterviewSessionClient({ session }: InterviewSessionClientProps)
               {session.company} — {session.role}
             </p>
           </div>
-          {session.overallScore !== null && (
-            <Badge variant="accent" className="px-3 py-1 text-base tabular-nums">
-              {session.overallScore}%
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {session.overallScore !== null && (
+              <Badge variant="accent" className="px-3 py-1 text-base tabular-nums">
+                {session.overallScore}%
+              </Badge>
+            )}
+            {report && (
+              <Button variant="outline" size="sm" disabled={downloading} onClick={handleDownloadReport}>
+                {downloading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Download PDF
+              </Button>
+            )}
+          </div>
         </div>
 
         {report && (
@@ -245,6 +312,17 @@ export function InterviewSessionClient({ session }: InterviewSessionClientProps)
               <Clock className="h-3 w-3" />
               {formatTime(secondsLeft)}
             </Badge>
+            {isPaused ? (
+              <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={handleResume}>
+                <Play className="h-3 w-3" />
+                Resume
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={handlePause}>
+                <Pause className="h-3 w-3" />
+                Pause
+              </Button>
+            )}
             <Badge variant="secondary">{session.role}</Badge>
           </div>
         </div>

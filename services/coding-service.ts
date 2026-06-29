@@ -182,3 +182,46 @@ export async function getCodingProgress(userId: string): Promise<CodingProgress>
     byDifficulty,
   };
 }
+
+/** Returns a hint after the user has at least one submission attempt. */
+export async function getCodingHint(userId: string, problemId: string) {
+  const attempt = await prisma.codingSubmission.findFirst({
+    where: { userId, problemId },
+  });
+  if (!attempt) throw new Error("Submit at least one attempt to unlock hints");
+
+  const problem = await prisma.codingProblem.findUnique({
+    where: { id: problemId },
+    select: { hint: true, solution: true, title: true },
+  });
+  if (!problem) throw new Error("Problem not found");
+
+  const hint =
+    problem.hint ??
+    (problem.solution?.split(/[.!?]/)[0]?.trim()
+      ? `${problem.solution.split(/[.!?]/)[0]!.trim()}.`
+      : "Think about the problem constraints and try a brute-force approach first.");
+
+  return { hint };
+}
+
+/** Returns the official solution after a failed or partial submission. */
+export async function getCodingSolution(userId: string, problemId: string) {
+  const attempt = await prisma.codingSubmission.findFirst({
+    where: { userId, problemId, status: { in: ["FAILED", "ERROR"] } },
+  });
+  const passed = await prisma.codingSubmission.findFirst({
+    where: { userId, problemId, status: "PASSED" },
+  });
+  if (!attempt && !passed) {
+    throw new Error("Attempt the problem before revealing the solution");
+  }
+
+  const problem = await prisma.codingProblem.findUnique({
+    where: { id: problemId },
+    select: { solution: true },
+  });
+  if (!problem?.solution) throw new Error("No solution available");
+
+  return { solution: problem.solution };
+}

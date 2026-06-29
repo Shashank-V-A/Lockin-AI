@@ -9,6 +9,8 @@ import {
   runCodingSolution,
   getUserSubmissions,
   getCodingProgress,
+  getCodingHint,
+  getCodingSolution,
 } from "@/services/coding-service";
 import { codeSubmissionSchema } from "@/lib/validations";
 import { enforceRateLimit } from "@/lib/rate-limit";
@@ -71,4 +73,18 @@ export async function fetchCodingProgress() {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
   return getCodingProgress(session.user.id);
+}
+
+/** Reveals a hint for a coding problem (requires prior attempt). */
+export async function revealCodingHint(problemId: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  return getCodingHint(session.user.id, problemId);
+}
+
+/** Reveals the official solution (requires prior attempt). */
+export async function revealCodingSolution(problemId: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  return getCodingSolution(session.user.id, problemId);
 }

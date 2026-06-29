@@ -232,3 +232,45 @@ export async function getAverageInterviewScore(userId: string): Promise<number> 
   });
   return Math.round(result._avg.overallScore ?? 0);
 }
+
+/** Pauses an in-progress interview and saves remaining time. */
+export async function pauseInterviewSession(
+  sessionId: string,
+  userId: string,
+  remainingSeconds: number,
+) {
+  const session = await prisma.interviewSession.findFirst({
+    where: { id: sessionId, userId, status: "IN_PROGRESS" },
+  });
+  if (!session) throw new Error("Session not found");
+
+  return prisma.interviewSession.update({
+    where: { id: sessionId },
+    data: { isPaused: true, remainingSeconds: Math.max(0, remainingSeconds) },
+  });
+}
+
+/** Resumes a paused interview. */
+export async function resumeInterviewSession(sessionId: string, userId: string) {
+  const session = await prisma.interviewSession.findFirst({
+    where: { id: sessionId, userId, status: "IN_PROGRESS" },
+  });
+  if (!session) throw new Error("Session not found");
+
+  return prisma.interviewSession.update({
+    where: { id: sessionId },
+    data: { isPaused: false },
+  });
+}
+
+/** Syncs remaining seconds while interview is active. */
+export async function syncInterviewTimer(
+  sessionId: string,
+  userId: string,
+  remainingSeconds: number,
+) {
+  await prisma.interviewSession.updateMany({
+    where: { id: sessionId, userId, status: "IN_PROGRESS", isPaused: false },
+    data: { remainingSeconds: Math.max(0, remainingSeconds) },
+  });
+}

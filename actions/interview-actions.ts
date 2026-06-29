@@ -10,6 +10,9 @@ import {
   getRecentInterviews,
   skipInterviewQuestion,
   abandonInterviewSession,
+  pauseInterviewSession,
+  resumeInterviewSession,
+  syncInterviewTimer,
 } from "@/services/interview-service";
 import { startInterviewSchema, interviewAnswerSchema } from "@/lib/validations";
 import { enforceRateLimit, RateLimitError } from "@/lib/rate-limit";
@@ -110,6 +113,31 @@ export async function fetchRecentInterviews() {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
   return getRecentInterviews(session.user.id);
+}
+
+/** Pauses interview timer mid-session. */
+export async function pauseInterview(sessionId: string, remainingSeconds: number) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  const result = await pauseInterviewSession(sessionId, session.user.id, remainingSeconds);
+  revalidatePath(`/mock-interview/${sessionId}`);
+  return result;
+}
+
+/** Resumes a paused interview. */
+export async function resumeInterview(sessionId: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  const result = await resumeInterviewSession(sessionId, session.user.id);
+  revalidatePath(`/mock-interview/${sessionId}`);
+  return result;
+}
+
+/** Syncs remaining timer to server (every 30s while active). */
+export async function syncInterviewTime(sessionId: string, remainingSeconds: number) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  await syncInterviewTimer(sessionId, session.user.id, remainingSeconds);
 }
 
 export { RateLimitError };

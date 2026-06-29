@@ -2,6 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import {
   createResumeRecord,
   processResume,
@@ -13,7 +14,7 @@ import {
 import { resumeUploadSchema } from "@/lib/validations";
 import { enforceRateLimit } from "@/lib/rate-limit";
 
-/** Saves uploaded resume and triggers analysis. */
+/** Saves uploaded resume and queues async AI analysis. */
 export async function saveAndAnalyzeResume(params: {
   fileName: string;
   fileUrl: string;
@@ -33,11 +34,32 @@ export async function saveAndAnalyzeResume(params: {
     fileKey: validated.fileKey,
   });
 
-  await processResume(resume.id, validated.rawText);
-  revalidatePath("/resume");
-  revalidatePath("/dashboard");
+  after(async () => {
+    try {
+      await processResume(resume.id, validated.rawText);
+      revalidatePath("/resume");
+      revalidatePath("/dashboard");
+    } catch {
+      revalidatePath("/resume");
+    }
+  });
 
+  revalidatePath("/resume");
   return resume.id;
+}
+
+/** Polls resume processing status. */
+export async function fetchResumeStatus(resumeId: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  const resume = await getResumeById(session.user.id, resumeId);
+  if (!resume) throw new Error("Resume not found");
+  return {
+    id: resume.id,
+    status: resume.status,
+    atsScore: resume.atsScore,
+    fileName: resume.fileName,
+  };
 }
 
 /** Gets all resumes for the current user. */

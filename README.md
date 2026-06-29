@@ -15,6 +15,23 @@ A premium SaaS web application for software engineering interview preparation �
 - **Cache:** Upstash Redis
 - **Deploy:** Vercel
 
+## Quick reference (local)
+
+```bash
+npm install
+cp .env.example .env   # fill DATABASE_URL, AUTH_*, GROQ_*, etc.
+npm run db:push
+npm run db:seed        # 52 coding problems
+npm run dev
+```
+
+Optional self-hosted code runner:
+
+```bash
+docker compose up piston -d
+# Set PISTON_API_URL=http://localhost:2000/api/v2/piston in .env
+```
+
 ## Getting Started
 
 ### 1. Clone and install
@@ -39,6 +56,9 @@ Copy `.env.example` to `.env` and fill in:
 | `UPLOADTHING_TOKEN` | UploadThing token |
 | `UPSTASH_REDIS_REST_URL` | Upstash Redis URL (optional) |
 | `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis token (optional) |
+| `PISTON_API_URL` | Self-hosted Piston URL (default: localhost:2000) |
+| `JUDGE0_API_URL` | Self-hosted Judge0 URL (optional) |
+| `CODE_RUNNER` | `auto`, `piston`, `judge0`, or `local` |
 
 ### 3. Set up database
 
@@ -60,7 +80,7 @@ Open [http://localhost:3000](http://localhost:3000).
 ### Production
 
 ```bash
-docker compose up app db
+docker compose up app db piston
 ```
 
 ### Development
@@ -81,17 +101,27 @@ services/         # Business logic layer
 actions/          # Server Actions
 types/            # TypeScript types
 prisma/           # Database schema and seed
+e2e/              # Playwright smoke tests
+proxy.ts          # Edge-safe auth cookie check
+```
+
+## Testing
+
+```bash
+npm run test       # Vitest unit tests
+npm run test:e2e   # Playwright (starts dev server if not running)
 ```
 
 ## Features
 
 - **Authentication** — Google OAuth only
 - **Dashboard** — Readiness score, quick actions, recent activity
-- **Resume Analyzer** — PDF upload, ATS scoring, AI feedback, PDF report download
-- **Mock Interviews** — Company-specific questions with AI evaluation
-- **Coding Assessment** — Monaco editor, timer, simulated execution, AI feedback
-- **Analytics** — Progress charts and performance insights
-- **AI Coach** — Conversational career and interview guidance
+- **Resume Analyzer** — PDF upload, async AI analysis with polling, ATS scoring, PDF report
+- **Mock Interviews** — Company-specific questions, pause/resume timer, PDF report export
+- **Coding Assessment** — Monaco editor, auto-submit timer, hints/solutions, sandbox execution
+- **Analytics** — Progress charts and performance insights (merged into dashboard)
+- **AI Coach** — Streaming chat with edit/regenerate, structured markdown responses
+- **Edge auth** — Cookie-based route protection via `proxy.ts` (no Prisma on edge)
 
 ## Deploy to Vercel
 

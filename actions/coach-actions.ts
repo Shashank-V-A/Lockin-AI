@@ -54,3 +54,41 @@ export async function clearCoachHistory() {
 
   revalidatePath("/coach");
 }
+
+/** Edits a user message and removes all messages after it. */
+export async function editCoachMessage(messageId: string, newContent: string) {
+  const userId = await requireUserId();
+  const content = coachMessageSchema.parse(newContent);
+
+  const existing = await prisma.coachMessage.findFirst({
+    where: { id: messageId, userId, role: "user" },
+  });
+  if (!existing) throw new Error("Message not found");
+
+  await prisma.coachMessage.update({
+    where: { id: messageId },
+    data: { content },
+  });
+  await prisma.coachMessage.deleteMany({
+    where: { userId, createdAt: { gt: existing.createdAt } },
+  });
+
+  revalidatePath("/coach");
+  return { content };
+}
+
+/** Deletes an assistant message (and any after) to allow regeneration. */
+export async function prepareCoachRegenerate(assistantMessageId: string) {
+  const userId = await requireUserId();
+
+  const existing = await prisma.coachMessage.findFirst({
+    where: { id: assistantMessageId, userId, role: "assistant" },
+  });
+  if (!existing) throw new Error("Message not found");
+
+  await prisma.coachMessage.deleteMany({
+    where: { userId, createdAt: { gte: existing.createdAt } },
+  });
+
+  revalidatePath("/coach");
+}

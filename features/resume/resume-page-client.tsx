@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ResumeUploadDropzone } from "@/components/resume-upload-dropzone";
 import { saveAndAnalyzeResume, removeResume } from "@/actions/resume-actions";
@@ -37,8 +37,38 @@ interface ResumePageClientProps {
 export function ResumePageClient({ resumes }: ResumePageClientProps) {
   const router = useRouter();
   const [analyzing, setAnalyzing] = useState(false);
+  const [pollingId, setPollingId] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [selectedId, setSelectedId] = useState(resumes[0]?.id ?? "");
+
+  useEffect(() => {
+    if (!pollingId) return;
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/resume/status?id=${pollingId}`);
+        if (!res.ok) return;
+        const data = (await res.json()) as { status: string };
+        if (data.status === "COMPLETED") {
+          setPollingId(null);
+          setAnalyzing(false);
+          toast.success("Resume analyzed successfully");
+          router.refresh();
+        } else if (data.status === "FAILED") {
+          setPollingId(null);
+          setAnalyzing(false);
+          toast.error("Resume analysis failed");
+          router.refresh();
+        }
+      } catch {
+        /* retry on next interval */
+      }
+    };
+
+    poll();
+    const interval = setInterval(poll, 2000);
+    return () => clearInterval(interval);
+  }, [pollingId, router]);
 
   const handleUploadComplete = async (files: UploadedFile[]) => {
     const file = files[0];
@@ -64,19 +94,19 @@ export function ResumePageClient({ resumes }: ResumePageClientProps) {
       }
       const { text } = await extractRes.json();
 
-      await saveAndAnalyzeResume({
+      const resumeId = await saveAndAnalyzeResume({
         fileName: file.name,
         fileUrl,
         fileKey: file.key,
         rawText: text,
       });
 
-      toast.success("Resume analyzed successfully");
+      setPollingId(resumeId);
+      toast.info("Resume queued for analysis — this may take a minute");
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to analyze resume");
-    } finally {
       setAnalyzing(false);
+      toast.error(error instanceof Error ? error.message : "Failed to analyze resume");
     }
   };
 
@@ -123,9 +153,9 @@ export function ResumePageClient({ resumes }: ResumePageClientProps) {
         </div>
         <div className="p-5">
           {analyzing ? (
-            <div className="flex items-center justify-center gap-2 py-14 text-sm text-muted-foreground">
+            <div className="flex flex-col items-center justify-center gap-2 py-14 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Analyzing your resume...
+              {pollingId ? "Analyzing your resume in the background…" : "Uploading…"}
             </div>
           ) : (
             <ResumeUploadDropzone
@@ -156,7 +186,11 @@ export function ResumePageClient({ resumes }: ResumePageClientProps) {
               >
                 <p className="font-medium">{r.fileName}</p>
                 <p className="text-[10px] text-muted-foreground">
-                  {r.status === "COMPLETED" && r.atsScore != null ? `ATS ${r.atsScore}` : r.status}
+                  {r.status === "PROCESSING" || r.status === "PENDING"
+                    ? "Processing…"
+                    : r.status === "COMPLETED" && r.atsScore != null
+                      ? `ATS ${r.atsScore}`
+                      : r.status}
                 </p>
               </button>
             ))}

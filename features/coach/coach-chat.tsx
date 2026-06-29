@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
-import { clearCoachHistory } from "@/actions/coach-actions";
+import { clearCoachHistory, editCoachMessage, prepareCoachRegenerate } from "@/actions/coach-actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/layout/page-header";
 import { toast } from "sonner";
-import { Send, Trash2, User } from "lucide-react";
+import { Send, Trash2, User, Pencil, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AiCoachIcon } from "@/components/icons/ai-coach-icon";
@@ -35,11 +35,13 @@ interface CoachChatProps {
   }[];
 }
 
-/** AI Coach chat interface. */
+/** AI Coach chat with edit, regenerate, and streaming. */
 export function CoachChat({ initialMessages }: CoachChatProps) {
   const [messages, setMessages] = useState(initialMessages);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,30 +50,34 @@ export function CoachChat({ initialMessages }: CoachChatProps) {
     container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
 
-  const sendMessage = async (text: string) => {
-    if (!text.trim() || loading) return;
-
-    const userMsg = {
-      id: `temp-${Date.now()}`,
-      role: "user",
-      content: text.trim(),
-      createdAt: new Date(),
-    };
-
+  const streamResponse = useCallback(async (text: string, skipUserMessage = false) => {
     const assistantId = `stream-${Date.now()}`;
-    setMessages((prev) => [
-      ...prev,
-      userMsg,
-      { id: assistantId, role: "assistant", content: "", createdAt: new Date() },
-    ]);
-    setInput("");
+    if (!skipUserMessage) {
+      const userMsg = {
+        id: `temp-${Date.now()}`,
+        role: "user",
+        content: text.trim(),
+        createdAt: new Date(),
+      };
+      setMessages((prev) => [
+        ...prev,
+        userMsg,
+        { id: assistantId, role: "assistant", content: "", createdAt: new Date() },
+      ]);
+    } else {
+      setMessages((prev) => [
+        ...prev,
+        { id: assistantId, role: "assistant", content: "", createdAt: new Date() },
+      ]);
+    }
+
     setLoading(true);
 
     try {
       const res = await fetch("/api/coach/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text.trim() }),
+        body: JSON.stringify({ message: text.trim(), skipUserMessage }),
       });
 
       if (!res.ok) {
@@ -119,10 +125,53 @@ export function CoachChat({ initialMessages }: CoachChatProps) {
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to get response");
-      setMessages((prev) => prev.filter((m) => m.id !== userMsg.id && m.id !== assistantId));
-      setInput(text.trim());
+      setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+      if (!skipUserMessage) setInput(text.trim());
+      throw error;
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const sendMessage = async (text: string) => {
+    if (!text.trim() || loading) return;
+    setInput("");
+    try {
+      await streamResponse(text);
+    } catch {
+      /* toast shown in streamResponse */
+    }
+  };
+
+  const handleEditSave = async (messageId: string) => {
+    if (!editText.trim() || loading) return;
+    try {
+      await editCoachMessage(messageId, editText.trim());
+      const idx = messages.findIndex((m) => m.id === messageId);
+      setMessages((prev) =>
+        prev
+          .slice(0, idx + 1)
+          .map((m) => (m.id === messageId ? { ...m, content: editText.trim() } : m)),
+      );
+      setEditingId(null);
+      setEditText("");
+      await streamResponse(editText.trim(), true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to edit message");
+    }
+  };
+
+  const handleRegenerate = async (assistantMessageId: string) => {
+    const idx = messages.findIndex((m) => m.id === assistantMessageId);
+    const userMsg = messages[idx - 1];
+    if (!userMsg || userMsg.role !== "user" || loading) return;
+
+    try {
+      await prepareCoachRegenerate(assistantMessageId);
+      setMessages((prev) => prev.slice(0, idx));
+      await streamResponse(userMsg.content, true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to regenerate");
     }
   };
 
@@ -158,7 +207,6 @@ export function CoachChat({ initialMessages }: CoachChatProps) {
               <p className="mt-4 text-sm font-medium">What can I help you with?</p>
               <p className="mt-1 max-w-md text-xs text-muted-foreground">
                 Ask coding questions, behavioral prep, system design, or resume advice.
-                Responses are formatted with headings, code blocks, and step-by-step explanations.
               </p>
               <div className="mt-6 grid w-full max-w-xl gap-2 sm:grid-cols-2">
                 {SUGGESTED_PROMPTS.map((prompt) => (
@@ -180,7 +228,7 @@ export function CoachChat({ initialMessages }: CoachChatProps) {
                 <div
                   key={msg.id}
                   className={cn(
-                    "flex gap-3",
+                    "group flex gap-3",
                     msg.role === "user" ? "justify-end" : "justify-start",
                   )}
                 >
@@ -191,16 +239,59 @@ export function CoachChat({ initialMessages }: CoachChatProps) {
                   )}
                   <div
                     className={cn(
-                      "min-w-0 rounded-xl",
+                      "relative min-w-0 rounded-xl",
                       msg.role === "user"
                         ? "max-w-[85%] bg-foreground px-3.5 py-2.5 text-sm leading-relaxed text-background"
                         : "max-w-full flex-1 bg-muted/60 px-4 py-3",
                     )}
                   >
-                    {msg.role === "assistant" ? (
+                    {msg.role === "user" && editingId === msg.id ? (
+                      <div className="space-y-2">
+                        <Textarea
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          rows={3}
+                          className="resize-none border-border/50 bg-background text-foreground"
+                        />
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="secondary" onClick={() => handleEditSave(msg.id)}>
+                            Save & resend
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : msg.role === "assistant" ? (
                       <CoachMarkdown content={msg.content} />
                     ) : (
                       <p className="whitespace-pre-wrap">{msg.content}</p>
+                    )}
+
+                    {msg.role === "user" && editingId !== msg.id && !msg.id.startsWith("temp-") && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(msg.id);
+                          setEditText(msg.content);
+                        }}
+                        className="absolute -left-8 top-1 rounded p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-muted"
+                        title="Edit message"
+                      >
+                        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                    )}
+
+                    {msg.role === "assistant" && msg.content && !msg.id.startsWith("stream-") && (
+                      <button
+                        type="button"
+                        onClick={() => handleRegenerate(msg.id)}
+                        disabled={loading}
+                        className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        Regenerate
+                      </button>
                     )}
                   </div>
                   {msg.role === "user" && (
@@ -210,7 +301,7 @@ export function CoachChat({ initialMessages }: CoachChatProps) {
                   )}
                 </div>
               ))}
-              {loading && (
+              {loading && messages[messages.length - 1]?.content === "" && (
                 <div className="flex gap-3">
                   <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10">
                     <AiCoachIcon className="h-4 w-4 animate-pulse" />
@@ -250,7 +341,7 @@ export function CoachChat({ initialMessages }: CoachChatProps) {
             </Button>
           </div>
           <p className="mx-auto mt-2 max-w-3xl text-center text-[10px] text-muted-foreground">
-            Enter to send · Shift+Enter for new line
+            Enter to send · Shift+Enter for new line · Hover messages to edit or regenerate
           </p>
         </div>
       </div>

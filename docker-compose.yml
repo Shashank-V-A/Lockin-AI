@@ -16,10 +16,13 @@ services:
       - UPLOADTHING_TOKEN=${UPLOADTHING_TOKEN}
       - UPSTASH_REDIS_REST_URL=${UPSTASH_REDIS_REST_URL}
       - UPSTASH_REDIS_REST_TOKEN=${UPSTASH_REDIS_REST_TOKEN}
+      - PISTON_API_URL=http://piston:2000/api/v2/piston
       - NEXT_PUBLIC_APP_URL=http://localhost:3000
     depends_on:
       db:
         condition: service_healthy
+      piston:
+        condition: service_started
     restart: unless-stopped
 
   db:
@@ -65,6 +68,13 @@ services:
       db:
         condition: service_healthy
     command: npm run dev
+
+  piston:
+    image: ghcr.io/engineer-man/piston:latest
+    ports:
+      - "2000:2000"
+    privileged: true
+    restart: unless-stopped
 
 volumes:
   postgres_data:

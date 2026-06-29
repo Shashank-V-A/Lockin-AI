@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFPage, type PDFFont, type RGB } from "pdf-lib";
 import type { ResumeAnalysis } from "@/types/resume";
 import type { ResumeReportAnalytics } from "@/types/report";
+import type { InterviewReport } from "@/types/interview";
 import { APP_NAME } from "@/lib/constants";
 
 const PAGE_WIDTH = 595;
@@ -239,7 +240,7 @@ class PdfBuilder {
     }
   }
 
-  drawHeader(fileName: string, generatedAt: string) {
+  drawHeader(fileName: string, generatedAt: string, subtitle = "Resume Analysis Report") {
     const headerH = 72;
     this.drawRect(0, PAGE_HEIGHT - headerH, PAGE_WIDTH, headerH, COLORS.accent);
     this.page.drawText(APP_NAME, {
@@ -249,7 +250,7 @@ class PdfBuilder {
       font: this.bold,
       color: COLORS.white,
     });
-    this.page.drawText("Resume Analysis Report", {
+    this.page.drawText(subtitle, {
       x: MARGIN,
       y: PAGE_HEIGHT - 52,
       size: 11,
@@ -362,6 +363,57 @@ export async function generateResumePDF(
   const a = document.createElement("a");
   a.href = url;
   a.download = `resume-analysis-${Date.now()}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** Generates and downloads a mock interview report PDF. */
+export async function generateInterviewPDF(
+  company: string,
+  role: string,
+  overallScore: number,
+  report: InterviewReport,
+) {
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const pdf = new PdfBuilder(doc, font, bold);
+
+  const generatedAt = new Date().toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  pdf.drawHeader(`${company} — ${role}`, generatedAt, "Mock Interview Report");
+  pdf.drawProgressBar("Overall Score", overallScore);
+  pdf.drawGap(4);
+
+  pdf.drawSectionTitle("Summary");
+  pdf.drawText(report.summary, { size: 10, color: COLORS.muted, lineGap: 4 });
+
+  if (report.categoryBreakdown?.length > 0) {
+    pdf.drawSectionTitle("Category Breakdown");
+    pdf.drawBulletList(report.categoryBreakdown.map((c) => `${c.category}: ${c.score}%`));
+  }
+
+  pdf.drawSectionTitle("Strengths");
+  pdf.drawBulletList(report.strengths);
+
+  pdf.drawSectionTitle("Improvements");
+  pdf.drawBulletList(report.improvements);
+
+  if (report.recommendations?.length > 0) {
+    pdf.drawSectionTitle("Recommendations");
+    pdf.drawNumberedList(report.recommendations);
+  }
+
+  const pdfBytes = await pdf.save();
+  const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `interview-report-${company.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}.pdf`;
   a.click();
   URL.revokeObjectURL(url);
 }
