@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { TestCase } from "@/types/coding";
+import { buildFunctionNames } from "@/lib/coding-problems-data";
 
 const execFileAsync = promisify(execFile);
 
@@ -23,29 +24,7 @@ export interface ExecutionResult {
 }
 
 /** Maps problem slugs to the function name per language. */
-const FUNCTION_NAMES: Record<string, Record<string, string>> = {
-  "two-sum": { python: "two_sum", javascript: "twoSum", java: "twoSum", cpp: "twoSum" },
-  "valid-parentheses": { python: "is_valid", javascript: "isValid", java: "isValid", cpp: "isValid" },
-  "merge-intervals": { python: "merge", javascript: "merge", java: "merge", cpp: "merge" },
-  "longest-substring": {
-    python: "length_of_longest_substring",
-    javascript: "lengthOfLongestSubstring",
-    java: "lengthOfLongestSubstring",
-    cpp: "lengthOfLongestSubstring",
-  },
-  "binary-tree-level-order": {
-    python: "level_order",
-    javascript: "levelOrder",
-    java: "levelOrder",
-    cpp: "levelOrder",
-  },
-  "word-ladder": {
-    python: "ladder_length",
-    javascript: "ladderLength",
-    java: "ladderLength",
-    cpp: "ladderLength",
-  },
-};
+const FUNCTION_NAMES = buildFunctionNames();
 
 /** Runs test cases against submitted code. */
 export async function runCodeTests(params: {

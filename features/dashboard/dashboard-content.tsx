@@ -2,20 +2,18 @@ import { ProgressRing } from "@/components/progress-ring";
 import { AnimatedCounter } from "@/components/animated-counter";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
-import { DashboardAnalytics } from "@/features/dashboard/dashboard-analytics";
 import Link from "next/link";
 import { FileText, MessageSquare, Code2, Sparkles } from "lucide-react";
-import type { DashboardPageData } from "@/types/dashboard";
+import type { DashboardStats } from "@/types/index";
 import { formatDistanceToNow } from "date-fns";
 
 interface DashboardContentProps {
-  data: DashboardPageData;
+  stats: DashboardStats;
+  analytics?: React.ReactNode;
 }
 
-/** Unified dashboard with stats, analytics, and quick actions. */
-export function DashboardContent({ data }: DashboardContentProps) {
-  const { stats, analytics } = data;
-
+/** Unified dashboard with stats, analytics slot, and quick actions. */
+export function DashboardContent({ stats, analytics }: DashboardContentProps) {
   const quickActions = [
     { href: "/resume", label: "Upload Resume", icon: FileText, desc: "Analyze your resume" },
     { href: "/mock-interview", label: "Mock Interview", icon: MessageSquare, desc: "Start practicing" },
@@ -91,7 +89,7 @@ export function DashboardContent({ data }: DashboardContentProps) {
         </div>
       </div>
 
-      <DashboardAnalytics data={analytics} />
+      {analytics}
 
       <div>
         <h2 className="mb-3 text-sm font-semibold tracking-tight">Quick Actions</h2>

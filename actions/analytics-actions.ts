@@ -1,7 +1,14 @@
 "use server";
 
 import { auth } from "@/lib/auth";
-import { getDashboardPageData } from "@/services/analytics-service";
+import { getDashboardPageData, getDashboardStats } from "@/services/analytics-service";
+
+/** Fetches dashboard stats only (fast path for initial paint). */
+export async function fetchDashboardStats() {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  return getDashboardStats(session.user.id);
+}
 
 /** Fetches combined dashboard stats and analytics. */
 export async function fetchDashboardPageData() {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ResumeUploadDropzone } from "@/components/resume-upload-dropzone";
 import { saveAndAnalyzeResume } from "@/actions/resume-actions";
 import { fetchResumeReportAnalytics } from "@/actions/analytics-actions";
@@ -10,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
 import { Download, FileText, Loader2 } from "lucide-react";
 import type { ResumeAnalysis } from "@/types/resume";
-import { generateResumePDF } from "@/lib/pdf";
 import { getUploadFileUrl } from "@/lib/pdf-extract";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +35,7 @@ interface ResumePageClientProps {
 
 /** Resume upload and analysis display. */
 export function ResumePageClient({ resumes }: ResumePageClientProps) {
+  const router = useRouter();
   const [analyzing, setAnalyzing] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
@@ -70,7 +71,7 @@ export function ResumePageClient({ resumes }: ResumePageClientProps) {
       });
 
       toast.success("Resume analyzed successfully");
-      window.location.reload();
+      router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to analyze resume");
     } finally {
@@ -87,6 +88,7 @@ export function ResumePageClient({ resumes }: ResumePageClientProps) {
     setDownloading(true);
     try {
       const analytics = await fetchResumeReportAnalytics();
+      const { generateResumePDF } = await import("@/lib/pdf");
       await generateResumePDF(latest.fileName, analysis, analytics);
     } catch {
       toast.error("Failed to generate report");

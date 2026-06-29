@@ -1,14 +1,22 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { sendCoachMessage, clearCoachHistory } from "@/actions/coach-actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/layout/page-header";
-import { CoachMarkdown } from "@/components/coach/coach-markdown";
 import { toast } from "sonner";
 import { Loader2, Send, Trash2, Bot, User, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const CoachMarkdown = dynamic(
+  () => import("@/components/coach/coach-markdown").then((m) => m.CoachMarkdown),
+  {
+    loading: () => <Skeleton className="h-20 w-full rounded-lg" />,
+  },
+);
 
 const SUGGESTED_PROMPTS = [
   "Explain Two Sum with a Python solution and complexity analysis",

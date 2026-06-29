@@ -6,13 +6,32 @@ import type { CodingFeedback, TestCase } from "@/types/coding";
 /** Gets all coding problems. */
 export async function getCodingProblems() {
   return prisma.codingProblem.findMany({
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      difficulty: true,
+      topic: true,
+    },
     orderBy: [{ difficulty: "asc" }, { title: "asc" }],
   });
 }
 
-/** Gets a coding problem by slug. */
+/** Gets a coding problem by slug (excludes solution and test cases). */
 export async function getCodingProblem(slug: string) {
-  return prisma.codingProblem.findUnique({ where: { slug } });
+  return prisma.codingProblem.findUnique({
+    where: { slug },
+    select: {
+      id: true,
+      title: true,
+      slug: true,
+      description: true,
+      difficulty: true,
+      topic: true,
+      starterCode: true,
+      timeLimit: true,
+    },
+  });
 }
 
 /** Runs code against test cases without saving a submission. */
@@ -108,4 +127,58 @@ export async function getAverageCodingScore(userId: string): Promise<number> {
     _avg: { score: true },
   });
   return Math.round(result._avg.score ?? 0);
+}
+
+export interface CodingProgress {
+  total: number;
+  solved: number;
+  attempted: number;
+  unsolved: number;
+  solvedIds: string[];
+  attemptedIds: string[];
+  byDifficulty: { easy: number; medium: number; hard: number };
+}
+
+/** Gets user coding progress across all problems. */
+export async function getCodingProgress(userId: string): Promise<CodingProgress> {
+  const [problems, passedSubs, allSubs] = await Promise.all([
+    prisma.codingProblem.findMany({
+      select: { id: true, difficulty: true },
+    }),
+    prisma.codingSubmission.findMany({
+      where: { userId, status: "PASSED" },
+      select: { problemId: true },
+      distinct: ["problemId"],
+    }),
+    prisma.codingSubmission.findMany({
+      where: { userId },
+      select: { problemId: true },
+      distinct: ["problemId"],
+    }),
+  ]);
+
+  const solvedIds = passedSubs.map((s) => s.problemId);
+  const attemptedIds = allSubs.map((s) => s.problemId);
+  const solvedSet = new Set(solvedIds);
+
+  const byDifficulty = { easy: 0, medium: 0, hard: 0 };
+  for (const p of problems) {
+    if (!solvedSet.has(p.id)) continue;
+    if (p.difficulty === "EASY") byDifficulty.easy++;
+    else if (p.difficulty === "MEDIUM") byDifficulty.medium++;
+    else byDifficulty.hard++;
+  }
+
+  const solved = solvedIds.length;
+  const total = problems.length;
+
+  return {
+    total,
+    solved,
+    attempted: attemptedIds.length,
+    unsolved: total - solved,
+    solvedIds,
+    attemptedIds,
+    byDifficulty,
+  };
 }

@@ -1,5 +1,6 @@
 import { fetchUserResumes } from "@/actions/resume-actions";
 import { ResumePageClient } from "@/features/resume/resume-page-client";
+import "./uploadthing.css";
 
 export const metadata = { title: "Resume Analyzer" };
 

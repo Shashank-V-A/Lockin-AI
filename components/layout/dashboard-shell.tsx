@@ -1,10 +1,15 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Navbar } from "@/components/layout/navbar";
-import { CommandPalette } from "@/components/layout/command-palette";
 import { useSidebarStore } from "@/hooks/use-sidebar-store";
 import { cn } from "@/lib/utils";
+
+const CommandPalette = dynamic(
+  () => import("@/components/layout/command-palette").then((m) => m.CommandPalette),
+  { ssr: false },
+);
 
 /** Dashboard layout shell with sidebar and navbar. */
 export function DashboardShell({ children }: { children: React.ReactNode }) {

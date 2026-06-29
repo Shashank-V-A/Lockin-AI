@@ -8,6 +8,7 @@ import {
   submitCodingSolution,
   runCodingSolution,
   getUserSubmissions,
+  getCodingProgress,
 } from "@/services/coding-service";
 
 /** Fetches all coding problems. */
@@ -55,4 +56,11 @@ export async function fetchUserSubmissions() {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
   return getUserSubmissions(session.user.id);
+}
+
+/** Gets user's solved/unsolved coding progress. */
+export async function fetchCodingProgress() {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  return getCodingProgress(session.user.id);
 }

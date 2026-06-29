@@ -19,8 +19,12 @@ import { Loader2, Play, Send, Clock, CheckCircle2, XCircle, AlertCircle } from "
 import type { CodingFeedback } from "@/types/coding";
 import type { TestResult } from "@/lib/code-runner";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
+const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
+  ssr: false,
+  loading: () => <Skeleton className="h-full min-h-[320px] w-full rounded-lg" />,
+});
 
 interface ResultState {
   runtime: number;

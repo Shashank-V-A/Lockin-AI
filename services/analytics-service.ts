@@ -42,37 +42,50 @@ export async function getAnalyticsData(userId: string): Promise<AnalyticsData> {
   const [resumes, interviews, submissions] = await Promise.all([
     prisma.resume.findMany({
       where: { userId, status: "COMPLETED", atsScore: { not: null } },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
+      take: 30,
       select: { atsScore: true, createdAt: true },
     }),
     prisma.interviewSession.findMany({
       where: { userId, status: "COMPLETED", overallScore: { not: null } },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
+      take: 30,
       select: { overallScore: true, company: true, createdAt: true },
     }),
     prisma.codingSubmission.findMany({
       where: { userId, score: { not: null } },
-      orderBy: { createdAt: "asc" },
-      include: { problem: { select: { topic: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: {
+        score: true,
+        createdAt: true,
+        problem: { select: { topic: true } },
+      },
     }),
   ]);
 
-  const resumeScores = resumes.map((r) => ({
-    date: format(r.createdAt, "MMM d"),
-    score: r.atsScore!,
-  }));
+  const resumeScores = [...resumes]
+    .reverse()
+    .map((r) => ({
+      date: format(r.createdAt, "MMM d"),
+      score: r.atsScore!,
+    }));
 
-  const interviewScores = interviews.map((i) => ({
-    date: format(i.createdAt, "MMM d"),
-    score: i.overallScore!,
-    company: i.company,
-  }));
+  const interviewScores = [...interviews]
+    .reverse()
+    .map((i) => ({
+      date: format(i.createdAt, "MMM d"),
+      score: i.overallScore!,
+      company: i.company,
+    }));
 
-  const codingScores = submissions.map((s) => ({
-    date: format(s.createdAt, "MMM d"),
-    score: s.score!,
-    topic: s.problem.topic,
-  }));
+  const codingScores = [...submissions]
+    .reverse()
+    .map((s) => ({
+      date: format(s.createdAt, "MMM d"),
+      score: s.score!,
+      topic: s.problem.topic,
+    }));
 
   const categoryScores: Record<string, number[]> = {};
   for (const sub of submissions) {

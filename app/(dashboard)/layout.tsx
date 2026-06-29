@@ -1,6 +1,8 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
+import DashboardGroupLoading from "./loading";
 
 /** Protected dashboard layout wrapper. */
 export default async function DashboardLayout({
@@ -11,5 +13,9 @@ export default async function DashboardLayout({
   const session = await auth();
   if (!session?.user) redirect("/");
 
-  return <DashboardShell>{children}</DashboardShell>;
+  return (
+    <DashboardShell>
+      <Suspense fallback={<DashboardGroupLoading />}>{children}</Suspense>
+    </DashboardShell>
+  );
 }
