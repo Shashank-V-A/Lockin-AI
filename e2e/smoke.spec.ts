@@ -23,4 +23,16 @@ test.describe("edge auth proxy", () => {
     await page.goto("/coach");
     await expect(page).toHaveURL("/");
   });
+
+  test("coach stream API returns 401 when unauthenticated", async ({ request }) => {
+    const res = await request.post("/api/coach/stream", {
+      data: { message: "hello" },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("resume status API returns 401 when unauthenticated", async ({ request }) => {
+    const res = await request.get("/api/resume/status?id=test");
+    expect(res.status()).toBe(401);
+  });
 });

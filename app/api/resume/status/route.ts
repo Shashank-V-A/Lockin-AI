@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getResumeById } from "@/services/resume-service";
+import { claimAndProcessResume } from "@/services/resume-worker";
 
-/** GET /api/resume/status?id= — poll async resume processing. */
+/** GET /api/resume/status?id= — poll status; kicks DB-backed processing when pending. */
 export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -14,9 +15,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Missing id" }, { status: 400 });
   }
 
-  const resume = await getResumeById(session.user.id, id);
+  let resume = await getResumeById(session.user.id, id);
   if (!resume) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  if (resume.status === "PENDING" && resume.rawText) {
+    try {
+      await claimAndProcessResume(id);
+    } catch {
+      /* status updated on refresh */
+    }
+    resume = (await getResumeById(session.user.id, id)) ?? resume;
   }
 
   return NextResponse.json({

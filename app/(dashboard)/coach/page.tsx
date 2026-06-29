@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CoachChat } from "@/features/coach/coach-chat";
 import { Skeleton } from "@/components/ui/skeleton";
+import { COACH_PAGE_SIZE } from "@/lib/coach-config";
 
 export const metadata = { title: "AI Coach" };
 
@@ -12,12 +13,21 @@ async function CoachMessages() {
 
   const messages = await prisma.coachMessage.findMany({
     where: { userId: session.user.id },
-    orderBy: { createdAt: "asc" },
-    take: 50,
+    orderBy: { createdAt: "desc" },
+    take: COACH_PAGE_SIZE,
     select: { id: true, role: true, content: true, createdAt: true },
   });
 
-  return <CoachChat initialMessages={messages} />;
+  const total = await prisma.coachMessage.count({
+    where: { userId: session.user.id },
+  });
+
+  return (
+    <CoachChat
+      initialMessages={messages.reverse()}
+      hasMore={total > messages.length}
+    />
+  );
 }
 
 function CoachLoading() {

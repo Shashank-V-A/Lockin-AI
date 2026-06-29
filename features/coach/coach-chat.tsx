@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
-import { clearCoachHistory, editCoachMessage, prepareCoachRegenerate } from "@/actions/coach-actions";
+import { clearCoachHistory, editCoachMessage, prepareCoachRegenerate, loadMoreCoachMessages } from "@/actions/coach-actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/layout/page-header";
@@ -33,11 +33,14 @@ interface CoachChatProps {
     content: string;
     createdAt: Date;
   }[];
+  hasMore?: boolean;
 }
 
-/** AI Coach chat with edit, regenerate, and streaming. */
-export function CoachChat({ initialMessages }: CoachChatProps) {
+/** AI Coach chat with edit, regenerate, streaming, and pagination. */
+export function CoachChat({ initialMessages, hasMore = false }: CoachChatProps) {
   const [messages, setMessages] = useState(initialMessages);
+  const [canLoadMore, setCanLoadMore] = useState(hasMore);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -178,7 +181,26 @@ export function CoachChat({ initialMessages }: CoachChatProps) {
   const handleClear = async () => {
     await clearCoachHistory();
     setMessages([]);
+    setCanLoadMore(false);
     toast.success("Conversation cleared");
+  };
+
+  const handleLoadMore = async () => {
+    if (!messages.length || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const older = await loadMoreCoachMessages(messages[0].createdAt.toISOString());
+      if (older.length === 0) {
+        setCanLoadMore(false);
+        return;
+      }
+      setMessages((prev) => [...older, ...prev]);
+      if (older.length < 30) setCanLoadMore(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to load messages");
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   return (
@@ -199,6 +221,13 @@ export function CoachChat({ initialMessages }: CoachChatProps) {
           ref={scrollContainerRef}
           className="chat-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 md:px-6"
         >
+          {canLoadMore && messages.length > 0 && (
+            <div className="mb-4 flex justify-center">
+              <Button variant="outline" size="sm" onClick={handleLoadMore} disabled={loadingMore}>
+                {loadingMore ? "Loading…" : "Load older messages"}
+              </Button>
+            </div>
+          )}
           {messages.length === 0 ? (
             <div className="flex min-h-full flex-col items-center justify-center py-12 text-center">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10">

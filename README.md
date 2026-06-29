@@ -54,18 +54,32 @@ Copy `.env.example` to `.env` and fill in:
 | `GROQ_API_KEY` | Groq API key |
 | `GROQ_MODEL` | Groq model (default: `llama-3.3-70b-versatile`) |
 | `UPLOADTHING_TOKEN` | UploadThing token |
-| `UPSTASH_REDIS_REST_URL` | Upstash Redis URL (optional) |
-| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis token (optional) |
-| `PISTON_API_URL` | Self-hosted Piston URL (default: localhost:2000) |
+| `UPSTASH_REDIS_REST_URL` | Upstash Redis URL (**required in production**) |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis token |
+| `CRON_SECRET` | Bearer token for `/api/cron/resume-worker` |
+| `PISTON_API_URL` | Piston sandbox URL (default: emkc.org public API) |
 | `JUDGE0_API_URL` | Self-hosted Judge0 URL (optional) |
-| `CODE_RUNNER` | `auto`, `piston`, `judge0`, or `local` |
+| `CODE_RUNNER` | `auto`, `piston`, `judge0` — production should use sandbox only |
+| `DISABLE_LOCAL_CODE_EXEC` | Set `true` to block local execFile fallback |
+| `ALLOW_MEMORY_RATE_LIMIT` | Dev-only escape hatch when Redis is unset |
 
 ### 3. Set up database
+
+**Local development** — fast iteration with schema sync:
 
 ```bash
 npm run db:push
 npm run db:seed
 ```
+
+**Production / CI / Docker** — versioned migrations:
+
+```bash
+npm run db:migrate:deploy
+npm run db:seed   # optional, first deploy only
+```
+
+Use `db:push` only in dev. Production and Docker use `prisma migrate deploy` so schema changes are tracked in `prisma/migrations/`.
 
 ### 4. Run development server
 
@@ -116,12 +130,20 @@ npm run test:e2e   # Playwright (starts dev server if not running)
 
 - **Authentication** — Google OAuth only
 - **Dashboard** — Readiness score, quick actions, recent activity
-- **Resume Analyzer** — PDF upload, async AI analysis with polling, ATS scoring, PDF report
+- **Resume Analyzer** — PDF upload, DB-backed async processing (cron + polling), ATS scoring, PDF report
 - **Mock Interviews** — Company-specific questions, pause/resume timer, PDF report export
-- **Coding Assessment** — Monaco editor, auto-submit timer, hints/solutions, sandbox execution
-- **Analytics** — Progress charts and performance insights (merged into dashboard)
-- **AI Coach** — Streaming chat with edit/regenerate, structured markdown responses
-- **Edge auth** — Cookie-based route protection via `proxy.ts` (no Prisma on edge)
+- **Coding Assessment** — Monaco editor, auto-submit timer, hints/solutions, sandbox execution, PDF export
+- **Analytics** — Progress charts with cache invalidation on mutations
+- **AI Coach** — Streaming chat (12-msg context cap), load-more history, structured markdown
+- **Edge auth** — Cookie-based page + API protection via `proxy.ts` (no Prisma on edge)
+- **Observability** — Structured JSON logs, request IDs, AI usage events
+
+## Production checklist
+
+1. Set `UPSTASH_REDIS_REST_*` (rate limits + dashboard cache)
+2. Set `CODE_RUNNER=piston` and `DISABLE_LOCAL_CODE_EXEC=true`
+3. Set `CRON_SECRET` and enable Vercel cron (`vercel.json`) for resume worker
+4. Use `npm run db:migrate:deploy` — not `db:push`
 
 ## Deploy to Vercel
 

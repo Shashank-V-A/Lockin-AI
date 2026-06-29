@@ -33,3 +33,13 @@ export async function cached<T>(
   await redis.set(key, value, { ex: ttlSeconds });
   return value;
 }
+
+/** Busts cached dashboard data for a user after mutations. */
+export async function invalidateDashboardCache(userId: string): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+  await Promise.all([
+    redis.del(`dashboard:stats:${userId}`),
+    redis.del(`dashboard:analytics:${userId}`),
+  ]);
+}

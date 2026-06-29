@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useCommandPaletteStore } from "@/hooks/use-command-palette-store";
+import { MobileNav } from "@/components/layout/mobile-nav";
 
 /** Top navbar for dashboard pages. */
 export function Navbar() {
@@ -28,18 +29,21 @@ export function Navbar() {
     .toUpperCase();
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/80 bg-background/75 px-6 backdrop-blur-xl">
-      <button
-        type="button"
-        onClick={openPalette}
-        className="hidden h-8 min-w-[220px] items-center gap-2 rounded-lg border border-border bg-card/80 px-3 text-left text-xs text-muted-foreground shadow-soft transition-colors hover:bg-card md:flex"
-      >
+    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/80 bg-background/75 px-4 backdrop-blur-xl sm:px-6">
+      <div className="flex items-center gap-2">
+        <MobileNav />
+        <button
+          type="button"
+          onClick={openPalette}
+          className="hidden h-8 min-w-[220px] items-center gap-2 rounded-lg border border-border bg-card/80 px-3 text-left text-xs text-muted-foreground shadow-soft transition-colors hover:bg-card md:flex"
+        >
         <Search className="h-3.5 w-3.5 shrink-0" />
         <span className="flex-1">Search pages and actions</span>
         <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
           ⌘K
         </kbd>
       </button>
+      </div>
 
       <div className="ml-auto flex items-center gap-1">
         <Button

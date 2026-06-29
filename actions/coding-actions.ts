@@ -14,6 +14,8 @@ import {
 } from "@/services/coding-service";
 import { codeSubmissionSchema } from "@/lib/validations";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { invalidateDashboardCache } from "@/lib/redis";
+import { withActionResult } from "@/lib/action-wrapper";
 
 /** Fetches all coding problems. */
 export async function fetchCodingProblems() {
@@ -46,19 +48,22 @@ export async function submitCode(params: {
   language: string;
   code: string;
 }) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  await enforceRateLimit(session.user.id, "coding");
-  codeSubmissionSchema.parse(params.code);
+  return withActionResult(async () => {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Unauthorized");
+    await enforceRateLimit(session.user.id, "coding");
+    codeSubmissionSchema.parse(params.code);
 
-  const result = await submitCodingSolution({
-    userId: session.user.id,
-    ...params,
+    const result = await submitCodingSolution({
+      userId: session.user.id,
+      ...params,
+    });
+
+    await invalidateDashboardCache(session.user.id);
+    revalidatePath("/coding");
+    revalidatePath("/dashboard");
+    return result;
   });
-
-  revalidatePath("/coding");
-  revalidatePath("/dashboard");
-  return result;
 }
 
 /** Gets user's coding submissions. */

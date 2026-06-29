@@ -21,11 +21,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <div
         className={cn(
           "min-h-screen transition-[margin] duration-200 ease-out",
-          collapsed ? "ml-[68px]" : "ml-[240px]",
+          collapsed ? "md:ml-[68px]" : "md:ml-[240px]",
         )}
       >
         <Navbar />
-        <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+        <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
       </div>
       <CommandPalette />
     </div>

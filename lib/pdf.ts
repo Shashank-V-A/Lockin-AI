@@ -2,6 +2,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFPage, type PDFFont, type RGB }
 import type { ResumeAnalysis } from "@/types/resume";
 import type { ResumeReportAnalytics } from "@/types/report";
 import type { InterviewReport } from "@/types/interview";
+import type { CodingFeedback } from "@/types/coding";
 import { APP_NAME } from "@/lib/constants";
 
 const PAGE_WIDTH = 595;
@@ -414,6 +415,73 @@ export async function generateInterviewPDF(
   const a = document.createElement("a");
   a.href = url;
   a.download = `interview-report-${company.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** Generates and downloads a coding submission report PDF. */
+export async function generateCodingPDF(
+  title: string,
+  difficulty: string,
+  topic: string,
+  language: string,
+  score: number,
+  passedTests: number,
+  totalTests: number,
+  feedback: CodingFeedback,
+) {
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const pdf = new PdfBuilder(doc, font, bold);
+
+  const generatedAt = new Date().toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  pdf.drawHeader(title, generatedAt, "Coding Assessment Report");
+  pdf.drawProgressBar("Score", score);
+  pdf.drawGap(4);
+
+  pdf.drawSectionTitle("Summary");
+  pdf.drawText(
+    `${difficulty} · ${topic} · ${language} · ${passedTests}/${totalTests} tests passed`,
+    { size: 10, color: COLORS.muted, lineGap: 4 },
+  );
+
+  if (feedback.summary) {
+    pdf.drawGap(8);
+    pdf.drawText(feedback.summary, { size: 10, color: COLORS.muted, lineGap: 4 });
+  }
+
+  if (feedback.timeComplexity || feedback.spaceComplexity) {
+    pdf.drawSectionTitle("Complexity");
+    pdf.drawBulletList(
+      [
+        feedback.timeComplexity ? `Time: ${feedback.timeComplexity}` : null,
+        feedback.spaceComplexity ? `Space: ${feedback.spaceComplexity}` : null,
+      ].filter(Boolean) as string[],
+    );
+  }
+
+  if (feedback.mistakes?.length > 0) {
+    pdf.drawSectionTitle("Mistakes");
+    pdf.drawBulletList(feedback.mistakes);
+  }
+
+  if (feedback.betterSolution) {
+    pdf.drawSectionTitle("Suggested Solution");
+    pdf.drawText(feedback.betterSolution, { size: 9, color: COLORS.muted, lineGap: 3 });
+  }
+
+  const pdfBytes = await pdf.save();
+  const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `coding-report-${title.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}.pdf`;
   a.click();
   URL.revokeObjectURL(url);
 }

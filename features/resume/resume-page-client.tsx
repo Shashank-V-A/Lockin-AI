@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ResumeUploadDropzone } from "@/components/resume-upload-dropzone";
 import { saveAndAnalyzeResume, removeResume } from "@/actions/resume-actions";
 import { fetchResumeReportAnalytics } from "@/actions/analytics-actions";
+import { toastActionError } from "@/lib/client-toast";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -94,14 +95,19 @@ export function ResumePageClient({ resumes }: ResumePageClientProps) {
       }
       const { text } = await extractRes.json();
 
-      const resumeId = await saveAndAnalyzeResume({
+      const result = await saveAndAnalyzeResume({
         fileName: file.name,
         fileUrl,
         fileKey: file.key,
         rawText: text,
       });
 
-      setPollingId(resumeId);
+      if (toastActionError(result)) {
+        setAnalyzing(false);
+        return;
+      }
+
+      setPollingId(result.data);
       toast.info("Resume queued for analysis — this may take a minute");
       router.refresh();
     } catch (error) {

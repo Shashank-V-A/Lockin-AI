@@ -1,6 +1,16 @@
 import type { NextConfig } from "next";
 
-const securityHeaders = [
+const baseCsp = [
+  "default-src 'self'",
+  "worker-src 'self' blob:",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https://lh3.googleusercontent.com https://utfs.io https://*.ufs.sh",
+  "font-src 'self' data:",
+  "connect-src 'self' https://api.groq.com https://uploadthing.com https://*.uploadthing.com https://utfs.io https://*.ufs.sh https://emkc.org",
+  "frame-ancestors 'none'",
+];
+
+const defaultSecurityHeaders = [
   { key: "X-DNS-Prefetch-Control", value: "on" },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "X-Frame-Options", value: "DENY" },
@@ -8,16 +18,15 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Content-Security-Policy",
-    value: [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      "worker-src 'self' blob:",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://lh3.googleusercontent.com https://utfs.io https://*.ufs.sh",
-      "font-src 'self' data:",
-      "connect-src 'self' https://api.groq.com https://uploadthing.com https://*.uploadthing.com https://utfs.io https://*.ufs.sh https://emkc.org",
-      "frame-ancestors 'none'",
-    ].join("; "),
+    value: [...baseCsp, "script-src 'self' 'unsafe-inline'"].join("; "),
+  },
+];
+
+const codingSecurityHeaders = [
+  ...defaultSecurityHeaders.filter((h) => h.key !== "Content-Security-Policy"),
+  {
+    key: "Content-Security-Policy",
+    value: [...baseCsp, "script-src 'self' 'unsafe-inline' 'unsafe-eval'"].join("; "),
   },
 ];
 
@@ -42,7 +51,10 @@ const nextConfig: NextConfig = {
     ],
   },
   async headers() {
-    return [{ source: "/(.*)", headers: securityHeaders }];
+    return [
+      { source: "/coding/:path*", headers: codingSecurityHeaders },
+      { source: "/((?!coding).*)", headers: defaultSecurityHeaders },
+    ];
   },
 };
 

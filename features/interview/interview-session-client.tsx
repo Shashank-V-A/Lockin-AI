@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
+import { toastActionError } from "@/lib/client-toast";
 import { Clock, Loader2, SkipForward, Pause, Play, Download } from "lucide-react";
 import type { InterviewReport } from "@/types/interview";
 
@@ -70,7 +71,8 @@ export function InterviewSessionClient({ session }: InterviewSessionClientProps)
   const progress = (session.answers.length / session.questions.length) * 100;
 
   const handleFinish = useCallback(async () => {
-    await finishInterview(session.id);
+    const result = await finishInterview(session.id);
+    if (toastActionError(result)) return;
     toast.success("Interview complete!");
     router.refresh();
   }, [session.id, router]);

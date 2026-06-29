@@ -3,17 +3,21 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { buildCoachSystemPrompt } from "@/services/ai-service";
 import { coachMessageSchema } from "@/lib/validations";
-import { enforceRateLimit } from "@/lib/rate-limit";
+import { enforceRateLimit, RateLimitError } from "@/lib/rate-limit";
 import { streamChat } from "@/lib/groq";
+import { logger, logAiUsage } from "@/lib/logger";
+import { COACH_CONTEXT_LIMIT } from "@/lib/coach-config";
 
 /** Streams AI Coach responses via SSE. */
 export async function POST(request: Request) {
+  const requestId = request.headers.get("x-request-id") ?? undefined;
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const userId = session.user.id;
+  const start = Date.now();
 
   try {
     await enforceRateLimit(userId, "coach");
@@ -33,7 +37,7 @@ export async function POST(request: Request) {
     const history = await prisma.coachMessage.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
-      take: 20,
+      take: COACH_CONTEXT_LIMIT,
       select: { role: true, content: true },
     });
 
@@ -45,6 +49,8 @@ export async function POST(request: Request) {
         role: m.role as "user" | "assistant",
         content: m.content,
       }));
+
+    logAiUsage({ feature: "coach", userId, requestId });
 
     const stream = await streamChat(systemPrompt, chatMessages);
     const encoder = new TextEncoder();
@@ -65,11 +71,23 @@ export async function POST(request: Request) {
             data: { userId, role: "assistant", content: fullText },
           });
 
+          logger.info("coach.stream_complete", {
+            requestId,
+            userId,
+            durationMs: Date.now() - start,
+            chars: fullText.length,
+          });
+
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ done: true, id: assistantMessage.id })}\n\n`),
           );
           controller.close();
         } catch (err) {
+          logger.error("coach.stream_failed", {
+            requestId,
+            userId,
+            error: err instanceof Error ? err.message : "unknown",
+          });
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ error: err instanceof Error ? err.message : "Stream failed" })}\n\n`,
@@ -88,9 +106,14 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    if (error instanceof Error && error.name === "RateLimitError") {
+    if (error instanceof RateLimitError) {
       return NextResponse.json({ error: error.message }, { status: 429 });
     }
+    logger.error("coach.request_failed", {
+      requestId,
+      userId,
+      error: error instanceof Error ? error.message : "unknown",
+    });
     return NextResponse.json({ error: "Failed to generate response" }, { status: 500 });
   }
 }

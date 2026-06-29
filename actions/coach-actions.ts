@@ -6,12 +6,29 @@ import { revalidatePath } from "next/cache";
 import { coachMessageSchema } from "@/lib/validations";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { generateCoachResponse } from "@/services/ai-service";
+import { COACH_PAGE_SIZE, COACH_CONTEXT_LIMIT } from "@/lib/coach-config";
 
 async function requireUserId() {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) throw new Error("Unauthorized");
   return userId;
+}
+
+/** Loads older coach messages before a cursor timestamp. */
+export async function loadMoreCoachMessages(beforeIso: string) {
+  const userId = await requireUserId();
+  const before = new Date(beforeIso);
+  if (Number.isNaN(before.getTime())) throw new Error("Invalid cursor");
+
+  const messages = await prisma.coachMessage.findMany({
+    where: { userId, createdAt: { lt: before } },
+    orderBy: { createdAt: "desc" },
+    take: COACH_PAGE_SIZE,
+    select: { id: true, role: true, content: true, createdAt: true },
+  });
+
+  return messages.reverse();
 }
 
 /** Sends a message to the AI coach (non-streaming fallback). */
@@ -27,7 +44,7 @@ export async function sendCoachMessage(content: string) {
   const history = await prisma.coachMessage.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
-    take: 20,
+    take: COACH_CONTEXT_LIMIT,
     select: { role: true, content: true },
   });
 

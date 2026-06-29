@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { analyzeResume } from "@/services/ai-service";
+import { deleteUploadFiles } from "@/lib/uploadthing-cleanup";
 import type { ResumeAnalysis } from "@/types/resume";
 
 /** Creates a resume record after upload. */
@@ -8,6 +9,7 @@ export async function createResumeRecord(params: {
   fileName: string;
   fileUrl: string;
   fileKey: string;
+  rawText?: string;
 }) {
   return prisma.resume.create({
     data: {
@@ -15,6 +17,7 @@ export async function createResumeRecord(params: {
       fileName: params.fileName,
       fileUrl: params.fileUrl,
       fileKey: params.fileKey,
+      rawText: params.rawText,
       status: "PENDING",
     },
   });
@@ -82,13 +85,14 @@ export async function getLatestResumeForUser(userId: string) {
   });
 }
 
-/** Deletes a resume and clears raw text. */
+/** Deletes a resume and its UploadThing file. */
 export async function deleteResume(userId: string, resumeId: string) {
   const resume = await prisma.resume.findFirst({
     where: { id: resumeId, userId },
   });
   if (!resume) throw new Error("Resume not found");
 
+  await deleteUploadFiles([resume.fileKey]);
   await prisma.resume.delete({ where: { id: resumeId } });
 }
 

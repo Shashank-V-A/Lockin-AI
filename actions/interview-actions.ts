@@ -16,6 +16,8 @@ import {
 } from "@/services/interview-service";
 import { startInterviewSchema, interviewAnswerSchema } from "@/lib/validations";
 import { enforceRateLimit, RateLimitError } from "@/lib/rate-limit";
+import { invalidateDashboardCache } from "@/lib/redis";
+import { withActionResult } from "@/lib/action-wrapper";
 
 /** Starts a new mock interview session. */
 export async function startInterview(params: {
@@ -92,13 +94,16 @@ export async function abandonInterview(sessionId: string) {
 
 /** Completes interview and generates report. */
 export async function finishInterview(sessionId: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  return withActionResult(async () => {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const result = await completeInterviewSession(sessionId, session.user.id);
-  revalidatePath("/mock-interview");
-  revalidatePath("/dashboard");
-  return result;
+    const result = await completeInterviewSession(sessionId, session.user.id);
+    await invalidateDashboardCache(session.user.id);
+    revalidatePath("/mock-interview");
+    revalidatePath("/dashboard");
+    return result;
+  });
 }
 
 /** Gets interview session data. */

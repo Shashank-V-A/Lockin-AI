@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import type { TestCase } from "@/types/coding";
 import { buildFunctionNames } from "@/lib/coding-problems-data";
 import { runSandboxTests } from "@/lib/code-sandbox";
+import { allowLocalCodeExecution } from "@/lib/env";
 
 const execFileAsync = promisify(execFile);
 
@@ -49,6 +50,10 @@ export async function runCodeTests(params: {
     start,
   });
   if (sandboxResult) return sandboxResult;
+
+  if (!allowLocalCodeExecution()) {
+    return sandboxUnavailableResult(params.language, params.testCases, start);
+  }
 
   if (params.language === "python") {
     return runPythonTests(params.code, fnName, params.testCases, start);

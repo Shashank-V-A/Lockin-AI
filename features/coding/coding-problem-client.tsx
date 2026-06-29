@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CODING_LANGUAGES } from "@/lib/constants";
+import { toastActionError } from "@/lib/client-toast";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -25,6 +26,7 @@ import {
   AlertCircle,
   Lightbulb,
   BookOpen,
+  Download,
 } from "lucide-react";
 import type { CodingFeedback } from "@/types/coding";
 import type { TestResult } from "@/lib/code-runner";
@@ -68,6 +70,7 @@ export function CodingProblemClient({ problem }: CodingProblemClientProps) {
   const [solution, setSolution] = useState<string | null>(null);
   const [loadingHint, setLoadingHint] = useState(false);
   const [loadingSolution, setLoadingSolution] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [editorHeight, setEditorHeight] = useState(400);
   const autoSubmitted = useRef(false);
 
@@ -118,21 +121,22 @@ export function CodingProblemClient({ problem }: CodingProblemClientProps) {
         language,
         code,
       });
+      if (toastActionError(res)) return;
       setResult({
-        runtime: res.submission.runtime ?? 0,
-        memory: res.submission.memory ?? 0,
-        passedTests: res.submission.passedTests ?? 0,
-        totalTests: res.submission.totalTests ?? 0,
-        score: res.submission.score ?? 0,
-        status: res.submission.status,
-        feedback: res.feedback,
-        testResults: res.testResults,
-        compileError: res.compileError,
+        runtime: res.data.submission.runtime ?? 0,
+        memory: res.data.submission.memory ?? 0,
+        passedTests: res.data.submission.passedTests ?? 0,
+        totalTests: res.data.submission.totalTests ?? 0,
+        score: res.data.submission.score ?? 0,
+        status: res.data.submission.status,
+        feedback: res.data.feedback,
+        testResults: res.data.testResults,
+        compileError: res.data.compileError,
       });
-      if (res.submission.status === "PASSED") {
+      if (res.data.submission.status === "PASSED") {
         toast.success("All tests passed!");
-      } else if (res.submission.status === "ERROR") {
-        toast.error(res.compileError ?? "Code error — see details below");
+      } else if (res.data.submission.status === "ERROR") {
+        toast.error(res.data.compileError ?? "Code error — see details below");
       } else {
         toast.warning("Some tests failed — see details below");
       }
@@ -202,6 +206,28 @@ export function CodingProblemClient({ problem }: CodingProblemClientProps) {
       toast.error(error instanceof Error ? error.message : "Solution unavailable");
     } finally {
       setLoadingSolution(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!result) return;
+    setDownloading(true);
+    try {
+      const { generateCodingPDF } = await import("@/lib/pdf");
+      await generateCodingPDF(
+        problem.title,
+        problem.difficulty,
+        problem.topic,
+        language,
+        result.score,
+        result.passedTests,
+        result.totalTests,
+        result.feedback,
+      );
+    } catch {
+      toast.error("Failed to generate PDF");
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -350,7 +376,17 @@ export function CodingProblemClient({ problem }: CodingProblemClientProps) {
             <h2 className="text-sm font-semibold tracking-tight">
               Results — {result.score}% ({result.passedTests}/{result.totalTests} tests)
             </h2>
-            <StatusBadge status={result.status} />
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={downloading}>
+                {downloading ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <Download className="mr-1 h-3 w-3" />
+                )}
+                PDF
+              </Button>
+              <StatusBadge status={result.status} />
+            </div>
           </div>
           <div className="space-y-4 p-4 sm:p-5">
             <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">

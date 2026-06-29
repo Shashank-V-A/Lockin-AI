@@ -108,23 +108,29 @@ export async function getAnalyticsData(userId: string): Promise<AnalyticsData> {
   const weakAreas = sorted.slice(0, 3);
   const strongAreas = [...sorted].reverse().slice(0, 3);
 
-  const timeline = [
+  const timelineEvents = [
     ...resumes.map((r) => ({
+      createdAt: r.createdAt,
       date: format(r.createdAt, "MMM d, yyyy"),
       event: `Resume analyzed — ${r.atsScore}% ATS`,
       type: "resume",
     })),
     ...interviews.map((i) => ({
+      createdAt: i.createdAt,
       date: format(i.createdAt, "MMM d, yyyy"),
       event: `${i.company} interview — ${i.overallScore}%`,
       type: "interview",
     })),
     ...submissions.slice(-5).map((s) => ({
+      createdAt: s.createdAt,
       date: format(s.createdAt, "MMM d, yyyy"),
       event: `Coding: ${s.problem.topic} — ${s.score}%`,
       type: "coding",
     })),
-  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  ]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 10)
+    .map(({ date, event, type }) => ({ date, event, type }));
 
   const recentPerformance = [
     {
@@ -156,7 +162,7 @@ export async function getAnalyticsData(userId: string): Promise<AnalyticsData> {
     codingScores,
     weakAreas,
     strongAreas,
-    timeline: timeline.slice(0, 10),
+    timeline: timelineEvents,
     recentPerformance,
   };
   });

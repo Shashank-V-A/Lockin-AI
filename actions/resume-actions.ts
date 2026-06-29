@@ -2,10 +2,8 @@
 
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { after } from "next/server";
 import {
   createResumeRecord,
-  processResume,
   getUserResumes,
   getResumeById,
   deleteResume,
@@ -13,39 +11,34 @@ import {
 } from "@/services/resume-service";
 import { resumeUploadSchema } from "@/lib/validations";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { invalidateDashboardCache } from "@/lib/redis";
+import { withActionResult } from "@/lib/action-wrapper";
 
-/** Saves uploaded resume and queues async AI analysis. */
+/** Saves uploaded resume and queues DB-backed processing (polled via /api/resume/status). */
 export async function saveAndAnalyzeResume(params: {
   fileName: string;
   fileUrl: string;
   fileKey: string;
   rawText: string;
 }) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  return withActionResult(async () => {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Unauthorized");
 
-  await enforceRateLimit(session.user.id, "resume");
-  const validated = resumeUploadSchema.parse(params);
+    await enforceRateLimit(session.user.id, "resume");
+    const validated = resumeUploadSchema.parse(params);
 
-  const resume = await createResumeRecord({
-    userId: session.user.id,
-    fileName: validated.fileName,
-    fileUrl: validated.fileUrl,
-    fileKey: validated.fileKey,
+    const resume = await createResumeRecord({
+      userId: session.user.id,
+      fileName: validated.fileName,
+      fileUrl: validated.fileUrl,
+      fileKey: validated.fileKey,
+      rawText: validated.rawText,
+    });
+
+    revalidatePath("/resume");
+    return resume.id;
   });
-
-  after(async () => {
-    try {
-      await processResume(resume.id, validated.rawText);
-      revalidatePath("/resume");
-      revalidatePath("/dashboard");
-    } catch {
-      revalidatePath("/resume");
-    }
-  });
-
-  revalidatePath("/resume");
-  return resume.id;
 }
 
 /** Polls resume processing status. */
@@ -82,6 +75,7 @@ export async function removeResume(resumeId: string) {
   if (!session?.user?.id) throw new Error("Unauthorized");
 
   await deleteResume(session.user.id, resumeId);
+  await invalidateDashboardCache(session.user.id);
   revalidatePath("/resume");
   revalidatePath("/dashboard");
 }
