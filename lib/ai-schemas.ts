@@ -30,12 +30,20 @@ export const interviewReportSchema = z.object({
   recommendations: z.array(z.string()),
 });
 
+const nullableString = z
+  .union([z.string(), z.null(), z.undefined()])
+  .transform((v) => v ?? "");
+
+const nullableStringArray = z
+  .union([z.array(z.string()), z.null(), z.undefined()])
+  .transform((v) => v ?? []);
+
 export const codingFeedbackSchema = z.object({
-  betterSolution: z.string(),
-  timeComplexity: z.string(),
-  spaceComplexity: z.string(),
-  mistakes: z.array(z.string()),
-  summary: z.string(),
+  betterSolution: nullableString,
+  timeComplexity: nullableString,
+  spaceComplexity: nullableString,
+  mistakes: nullableStringArray,
+  summary: nullableString,
 });
 
 export const interviewQuestionsSchema = z.object({

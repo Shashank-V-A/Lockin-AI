@@ -137,8 +137,8 @@ export function CodingProblemClient({ problem }: CodingProblemClientProps) {
         toast.warning("Some tests failed — see details below");
       }
       router.refresh();
-    } catch {
-      toast.error("Submission failed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Submission failed");
     } finally {
       setSubmitting(false);
     }

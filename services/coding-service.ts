@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { runCodeTests } from "@/lib/code-runner";
 import { analyzeCodingSubmission } from "@/services/ai-service";
+import { resolveCodingHint } from "@/lib/coding-hints-solutions";
 import type { CodingFeedback, TestCase } from "@/types/coding";
 
 /** Gets all coding problems. */
@@ -77,13 +78,26 @@ export async function submitCodingSolution(params: {
   const passed = result.status === "PASSED";
   const score = Math.round((result.passedTests / result.totalTests) * 100);
 
-  const feedback = await analyzeCodingSubmission({
-    problem: problem.description,
-    code: params.code,
-    language: params.language,
-    passed,
-    testResults: result.testResults,
-  });
+  let feedback: CodingFeedback;
+  try {
+    feedback = await analyzeCodingSubmission({
+      problem: problem.description,
+      code: params.code,
+      language: params.language,
+      passed,
+      testResults: result.testResults,
+    });
+  } catch {
+    feedback = {
+      betterSolution: passed ? "" : "Review the failing test cases and edge conditions.",
+      timeComplexity: passed ? "O(n)" : "—",
+      spaceComplexity: passed ? "O(n)" : "—",
+      mistakes: passed ? [] : ["Some test cases did not pass."],
+      summary: passed
+        ? "All tests passed. AI feedback was unavailable — submission saved."
+        : "Submission saved. Review test output for details.",
+    };
+  }
 
   const submission = await prisma.codingSubmission.create({
     data: {
@@ -192,15 +206,12 @@ export async function getCodingHint(userId: string, problemId: string) {
 
   const problem = await prisma.codingProblem.findUnique({
     where: { id: problemId },
-    select: { hint: true, solution: true, title: true },
+    select: { hint: true, solution: true, title: true, slug: true },
   });
   if (!problem) throw new Error("Problem not found");
 
-  const hint =
-    problem.hint ??
-    (problem.solution?.split(/[.!?]/)[0]?.trim()
-      ? `${problem.solution.split(/[.!?]/)[0]!.trim()}.`
-      : "Think about the problem constraints and try a brute-force approach first.");
+  const approach = problem.solution?.split("\n")[0]?.replace(/^Approach:\s*/, "") ?? "";
+  const hint = problem.hint ?? resolveCodingHint(problem.slug, approach);
 
   return { hint };
 }

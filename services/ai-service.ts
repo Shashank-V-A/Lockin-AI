@@ -19,7 +19,7 @@ const ANSWER_EVAL_SYSTEM = `You are an interview evaluator. Score answers 0-100 
 
 const INTERVIEW_REPORT_SYSTEM = `You are an interview coach. Generate a comprehensive interview report as JSON with: overallScore, summary, strengths, improvements, categoryBreakdown (array of {category, score}), recommendations.`;
 
-const CODING_FEEDBACK_SYSTEM = `You are a senior software engineer. Review code submissions. Return JSON with: betterSolution, timeComplexity, spaceComplexity, mistakes (array), summary.`;
+const CODING_FEEDBACK_SYSTEM = `You are a senior software engineer. Review code submissions. Return JSON with: betterSolution (string, use "" if already optimal), timeComplexity, spaceComplexity, mistakes (array of strings), summary. Never use null — use empty string or empty array instead.`;
 
 const COACH_SYSTEM_BASE = `You are Lockin-AI Coach — an expert software engineering interview and career coach.
 

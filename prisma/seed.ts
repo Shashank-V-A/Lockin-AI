@@ -3,6 +3,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import "dotenv/config";
 import { CODING_PROBLEMS } from "../lib/coding-problems-data";
+import { formatOfficialSolution, resolveCodingHint } from "../lib/coding-hints-solutions";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -16,9 +17,9 @@ async function main() {
 
   for (const problem of CODING_PROBLEMS) {
     const { fnPython: _fp, fnJs: _fj, fnJava: _fja, ...data } = problem;
-    const hintSentence = data.solution.split(/[.!?]/)[0]?.trim();
-    const hint = hintSentence ? `${hintSentence}.` : null;
-    const payload = { ...data, hint };
+    const hint = resolveCodingHint(problem.slug, data.solution);
+    const solution = formatOfficialSolution(problem.slug, data.solution);
+    const payload = { ...data, hint, solution };
     await prisma.codingProblem.upsert({
       where: { slug: problem.slug },
       update: payload,

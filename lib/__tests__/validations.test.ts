@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { coachMessageSchema, interviewAnswerSchema, startInterviewSchema } from "@/lib/validations";
-import { resumeAnalysisSchema } from "@/lib/ai-schemas";
+import { resumeAnalysisSchema, codingFeedbackSchema } from "@/lib/ai-schemas";
 
 describe("validations", () => {
   it("rejects empty coach messages", () => {
@@ -34,6 +34,18 @@ describe("ai-schemas", () => {
       summary: "Strong candidate",
     });
     expect(data.atsScore).toBe(85);
+  });
+
+  it("coerces null coding feedback fields from Groq", () => {
+    const data = codingFeedbackSchema.parse({
+      betterSolution: null,
+      timeComplexity: "O(n)",
+      spaceComplexity: "O(n)",
+      mistakes: null,
+      summary: "Clean hash map solution.",
+    });
+    expect(data.betterSolution).toBe("");
+    expect(data.mistakes).toEqual([]);
   });
 });
 
