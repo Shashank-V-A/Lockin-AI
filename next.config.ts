@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const isDev = process.env.NODE_ENV === "development";
+
 const baseCsp = [
   "default-src 'self'",
   "worker-src 'self' blob:",
@@ -18,7 +20,12 @@ const defaultSecurityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Content-Security-Policy",
-    value: [...baseCsp, "script-src 'self' 'unsafe-inline'"].join("; "),
+    value: [
+      ...baseCsp,
+      isDev
+        ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+        : "script-src 'self' 'unsafe-inline'",
+    ].join("; "),
   },
 ];
 

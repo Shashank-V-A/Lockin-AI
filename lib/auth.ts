@@ -28,6 +28,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   pages: {
     signIn: "/",
+    error: "/",
   },
   session: {
     // JWT avoids a DB round-trip on every auth() call — more reliable with Neon serverless.
