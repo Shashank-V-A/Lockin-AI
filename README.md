@@ -186,4 +186,4 @@ docker compose --profile dev up app-dev db
 
 ## License
 
-Private portfolio project — built by [Shashank V A](https://github.com/Shashank-V-A).
+Project — built by [Shashank V A](https://github.com/Shashank-V-A).
