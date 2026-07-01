@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { fetchCodingProblem } from "@/actions/coding-actions";
+import { fetchCodingProblemPageData } from "@/actions/coding-actions";
 import { CodingProblemClient } from "@/features/coding/coding-problem-client";
 
 export const metadata = { title: "Coding Problem" };
@@ -11,8 +11,14 @@ export default async function CodingProblemPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const problem = await fetchCodingProblem(slug);
-  if (!problem) notFound();
+  const data = await fetchCodingProblemPageData(slug);
+  if (!data) notFound();
 
-  return <CodingProblemClient problem={problem} />;
+  return (
+    <CodingProblemClient
+      problem={data.problem}
+      initialDraft={data.draft}
+      initialBookmarked={data.bookmarked}
+    />
+  );
 }

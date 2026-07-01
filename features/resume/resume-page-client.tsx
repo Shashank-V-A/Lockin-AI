@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ResumeUploadDropzone } from "@/components/resume-upload-dropzone";
-import { saveAndAnalyzeResume, removeResume } from "@/actions/resume-actions";
+import { saveAndAnalyzeResume, removeResume, fetchResumeAnalysis } from "@/actions/resume-actions";
 import { fetchResumeReportAnalytics } from "@/actions/analytics-actions";
 import { toastActionError } from "@/lib/client-toast";
 import { toast } from "sonner";
@@ -28,19 +28,68 @@ interface ResumePageClientProps {
     fileName: string;
     fileUrl: string;
     atsScore: number | null;
-    analysis: unknown;
     status: string;
     createdAt: Date;
   }[];
+  initialAnalysisId: string | null;
+  initialAnalysis: ResumeAnalysis | null;
 }
 
 /** Resume upload and analysis display. */
-export function ResumePageClient({ resumes }: ResumePageClientProps) {
+export function ResumePageClient({
+  resumes,
+  initialAnalysisId,
+  initialAnalysis,
+}: ResumePageClientProps) {
   const router = useRouter();
   const [analyzing, setAnalyzing] = useState(false);
   const [pollingId, setPollingId] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
-  const [selectedId, setSelectedId] = useState(resumes[0]?.id ?? "");
+  const [selectedId, setSelectedId] = useState(
+    initialAnalysisId ?? resumes[0]?.id ?? "",
+  );
+  const [analysisById, setAnalysisById] = useState<Record<string, ResumeAnalysis>>(() => {
+    if (initialAnalysisId && initialAnalysis) {
+      return { [initialAnalysisId]: initialAnalysis };
+    }
+    return {};
+  });
+  const [loadingAnalysisId, setLoadingAnalysisId] = useState<string | null>(null);
+  const fetchedAnalysisRef = useRef<Set<string>>(
+    new Set(initialAnalysisId ? [initialAnalysisId] : []),
+  );
+
+  useEffect(() => {
+    if (!selectedId) return;
+    if (fetchedAnalysisRef.current.has(selectedId)) return;
+
+    const resume = resumes.find((r) => r.id === selectedId);
+    if (!resume || resume.status !== "COMPLETED") return;
+
+    let cancelled = false;
+    setLoadingAnalysisId(selectedId);
+
+    fetchResumeAnalysis(selectedId)
+      .then((data) => {
+        if (cancelled) return;
+        if (!data) {
+          toast.error("Could not load analysis. Try refreshing.");
+          return;
+        }
+        fetchedAnalysisRef.current.add(selectedId);
+        setAnalysisById((prev) => ({ ...prev, [selectedId]: data }));
+      })
+      .catch(() => {
+        if (!cancelled) toast.error("Could not load analysis. Try again.");
+      })
+      .finally(() => {
+        setLoadingAnalysisId((current) => (current === selectedId ? null : current));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId, resumes]);
 
   useEffect(() => {
     if (!pollingId) return;
@@ -117,7 +166,8 @@ export function ResumePageClient({ resumes }: ResumePageClientProps) {
   };
 
   const selected = resumes.find((r) => r.id === selectedId) ?? resumes[0];
-  const analysis = selected?.analysis as ResumeAnalysis | null;
+  const analysis = selected ? analysisById[selected.id] ?? null : null;
+  const loadingAnalysis = selected && loadingAnalysisId === selected.id;
 
   const handleDelete = async (resumeId: string) => {
     if (!confirm("Delete this resume and its analysis?")) return;
@@ -201,6 +251,13 @@ export function ResumePageClient({ resumes }: ResumePageClientProps) {
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {selected?.status === "COMPLETED" && loadingAnalysis && (
+        <div className="surface-card flex flex-col items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading analysis…
         </div>
       )}
 

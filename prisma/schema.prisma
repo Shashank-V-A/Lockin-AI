@@ -22,6 +22,8 @@ model User {
   codingSubmissions  CodingSubmission[]
   coachMessages      CoachMessage[]
   reports            Report[]
+  codingBookmarks    CodingBookmark[]
+  codingDrafts       CodingDraft[]
 }
 
 model Account {
@@ -76,6 +78,7 @@ model Resume {
   reports Report[]
 
   @@index([userId])
+  @@index([userId, createdAt])
 }
 
 enum ResumeStatus {
@@ -107,6 +110,8 @@ model InterviewSession {
   reports   Report[]
 
   @@index([userId])
+  @@index([userId, status])
+  @@index([userId, createdAt])
 }
 
 enum InterviewStatus {
@@ -145,6 +150,11 @@ model InterviewAnswer {
   completeness        Int?
   overallScore        Int?
   feedback            String? @db.Text
+  followUpQuestion    String? @db.Text
+  followUpAnswer      String? @db.Text
+  followUpScore       Int?
+  followUpFeedback    String? @db.Text
+  followUpSkipped     Boolean @default(false)
   createdAt           DateTime @default(now())
 
   session  InterviewSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -168,6 +178,8 @@ model CodingProblem {
   createdAt   DateTime   @default(now())
 
   submissions CodingSubmission[]
+  bookmarks   CodingBookmark[]
+  drafts      CodingDraft[]
 }
 
 model CodingSubmission {
@@ -190,6 +202,8 @@ model CodingSubmission {
 
   @@index([userId])
   @@index([problemId])
+  @@index([userId, status])
+  @@index([userId, createdAt])
 }
 
 enum SubmissionStatus {
@@ -209,6 +223,7 @@ model CoachMessage {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([userId, createdAt])
 }
 
 model Report {
@@ -232,4 +247,32 @@ enum ReportType {
   RESUME
   INTERVIEW
   CODING
+}
+
+model CodingBookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  problemId String
+  createdAt DateTime @default(now())
+
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem CodingProblem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, problemId])
+  @@index([userId])
+}
+
+model CodingDraft {
+  id        String   @id @default(cuid())
+  userId    String
+  problemId String
+  language  String   @default("python")
+  code      String   @db.Text
+  updatedAt DateTime @updatedAt
+
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem CodingProblem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, problemId])
+  @@index([userId])
 }

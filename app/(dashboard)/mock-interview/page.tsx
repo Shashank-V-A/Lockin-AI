@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { InterviewSetup } from "@/features/interview/interview-setup";
+import { MockInterviewNotice } from "@/features/interview/mock-interview-notice";
 import { fetchRecentInterviews } from "@/actions/interview-actions";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
@@ -13,6 +15,9 @@ export default async function MockInterviewPage() {
 
   return (
     <div className="space-y-8">
+      <Suspense fallback={null}>
+        <MockInterviewNotice />
+      </Suspense>
       <PageHeader
         title="Mock Interview"
         description="Practice company-specific interviews with structured AI evaluation."
@@ -29,7 +34,11 @@ export default async function MockInterviewPage() {
             {recent.map((session) => (
               <Link
                 key={session.id}
-                href={`/mock-interview/${session.id}`}
+                href={
+                  session.status === "IN_PROGRESS"
+                    ? `/mock-interview/${session.id}`
+                    : "/mock-interview"
+                }
                 className="group flex items-center justify-between rounded-lg px-3 py-3 transition-colors hover:bg-muted/60"
               >
                 <div>

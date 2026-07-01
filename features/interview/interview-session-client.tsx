@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   submitAnswer,
+  submitFollowUp,
+  skipFollowUp,
   finishInterview,
   skipQuestion,
   abandonInterview,
@@ -17,10 +19,44 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { toastActionError } from "@/lib/client-toast";
-import { Clock, Loader2, SkipForward, Pause, Play, Download } from "lucide-react";
+import type { ActionResult } from "@/lib/action-result";
+import { Clock, Loader2, SkipForward, Pause, Play, Download, MessageCircle } from "lucide-react";
 import type { InterviewReport } from "@/types/interview";
 
+function handleInterviewActionError(
+  result: ActionResult<unknown>,
+  router: ReturnType<typeof useRouter>,
+): boolean {
+  if (result.ok) return false;
+  if (result.code === "SESSION_INACTIVE") {
+    toast.error(result.error);
+    router.push("/mock-interview");
+    return true;
+  }
+  if (result.code === "VALIDATION" && result.error.includes("already submitted")) {
+    toast.info(result.error);
+    router.refresh();
+    return true;
+  }
+  return toastActionError(result);
+}
+
 const SESSION_MINUTES = 45;
+
+type SessionAnswer = {
+  questionId: string;
+  overallScore: number | null;
+  feedback: string | null;
+  technicalAccuracy: number | null;
+  communication: number | null;
+  confidence: number | null;
+  completeness: number | null;
+  followUpQuestion: string | null;
+  followUpAnswer: string | null;
+  followUpScore: number | null;
+  followUpFeedback: string | null;
+  followUpSkipped: boolean;
+};
 
 interface InterviewSessionClientProps {
   session: {
@@ -33,27 +69,49 @@ interface InterviewSessionClientProps {
     remainingSeconds: number;
     isPaused: boolean;
     questions: { id: string; order: number; question: string; category: string }[];
-    answers: {
-      questionId: string;
-      overallScore: number | null;
-      feedback: string | null;
-      technicalAccuracy: number | null;
-      communication: number | null;
-      confidence: number | null;
-      completeness: number | null;
-    }[];
+    answers: SessionAnswer[];
   };
 }
 
-/** Active mock interview session UI with pause/resume. */
+function isAnswerComplete(answer: SessionAnswer | undefined): boolean {
+  if (!answer) return false;
+  if (answer.followUpQuestion && !answer.followUpAnswer && !answer.followUpSkipped) {
+    return false;
+  }
+  return true;
+}
+
+/** Active mock interview session UI with follow-ups, pause/resume. */
 export function InterviewSessionClient({ session }: InterviewSessionClientProps) {
   const router = useRouter();
-  const answeredIds = new Set(session.answers.map((a) => a.questionId));
-  const currentIndex = session.questions.findIndex((q) => !answeredIds.has(q.id));
+
+  const getAnswer = (questionId: string) =>
+    session.answers.find((a) => a.questionId === questionId);
+
+  const completedCount = session.questions.filter((q) =>
+    isAnswerComplete(getAnswer(q.id)),
+  ).length;
+
+  const currentIndex = session.questions.findIndex(
+    (q) => !isAnswerComplete(getAnswer(q.id)),
+  );
   const currentQuestion = currentIndex >= 0 ? session.questions[currentIndex] : null;
   const isComplete = session.status === "COMPLETED" || currentIndex === -1;
 
+  const pendingFromServer = (() => {
+    if (!currentQuestion) return null;
+    const ans = getAnswer(currentQuestion.id);
+    if (ans?.followUpQuestion && !ans.followUpAnswer && !ans.followUpSkipped) {
+      return { questionId: currentQuestion.id, text: ans.followUpQuestion };
+    }
+    return null;
+  })();
+
   const [answer, setAnswer] = useState("");
+  const [followUpAnswer, setFollowUpAnswer] = useState("");
+  const [followUpPhase, setFollowUpPhase] = useState<{ questionId: string; text: string } | null>(
+    pendingFromServer,
+  );
   const [loading, setLoading] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(session.remainingSeconds ?? SESSION_MINUTES * 60);
   const [isPaused, setIsPaused] = useState(session.isPaused);
@@ -66,16 +124,43 @@ export function InterviewSessionClient({ session }: InterviewSessionClientProps)
     communication: number;
     confidence: number;
     completeness: number;
-  } | null>(null);
+  } | null>(() => {
+    if (!pendingFromServer) return null;
+    const ans = getAnswer(pendingFromServer.questionId);
+    if (!ans) return null;
+    return {
+      overallScore: ans.overallScore ?? 0,
+      feedback: ans.feedback ?? "",
+      technicalAccuracy: ans.technicalAccuracy ?? 0,
+      communication: ans.communication ?? 0,
+      confidence: ans.confidence ?? 0,
+      completeness: ans.completeness ?? 0,
+    };
+  });
 
-  const progress = (session.answers.length / session.questions.length) * 100;
+  const progress = (completedCount / session.questions.length) * 100;
 
   const handleFinish = useCallback(async () => {
     const result = await finishInterview(session.id);
-    if (toastActionError(result)) return;
+    if (handleInterviewActionError(result, router)) return;
     toast.success("Interview complete!");
     router.refresh();
   }, [session.id, router]);
+
+  const advanceAfterQuestion = useCallback(
+    async (isLast: boolean) => {
+      setFollowUpPhase(null);
+      setFollowUpAnswer("");
+      setLastEval(null);
+      if (isLast) {
+        await handleFinish();
+      } else {
+        toast.success("Moving to next question");
+        router.refresh();
+      }
+    },
+    [handleFinish, router],
+  );
 
   useEffect(() => {
     if (isComplete || session.status !== "IN_PROGRESS" || isPaused) return;
@@ -154,24 +239,68 @@ export function InterviewSessionClient({ session }: InterviewSessionClientProps)
         question: currentQuestion.question,
       });
 
+      if (!result.ok) {
+        handleInterviewActionError(result, router);
+        return;
+      }
+
+      const data = result.data;
       setLastEval({
-        overallScore: result.overallScore ?? 0,
-        feedback: result.feedback ?? "",
-        technicalAccuracy: result.technicalAccuracy ?? 0,
-        communication: result.communication ?? 0,
-        confidence: result.confidence ?? 0,
-        completeness: result.completeness ?? 0,
+        overallScore: data.overallScore ?? 0,
+        feedback: data.feedback ?? "",
+        technicalAccuracy: data.technicalAccuracy ?? 0,
+        communication: data.communication ?? 0,
+        confidence: data.confidence ?? 0,
+        completeness: data.completeness ?? 0,
       });
       setAnswer("");
 
-      if (currentIndex === session.questions.length - 1) {
-        await handleFinish();
+      if (data.followUpQuestion) {
+        setFollowUpPhase({ questionId: currentQuestion.id, text: data.followUpQuestion });
       } else {
-        toast.success("Answer evaluated");
-        router.refresh();
+        await advanceAfterQuestion(currentIndex === session.questions.length - 1);
       }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to submit answer");
+    } catch {
+      toast.error("Couldn't save your answer. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitFollowUp = async () => {
+    if (!followUpPhase || !followUpAnswer.trim()) return;
+
+    setLoading(true);
+    try {
+      const result = await submitFollowUp({
+        sessionId: session.id,
+        questionId: followUpPhase.questionId,
+        answer: followUpAnswer,
+        company: session.company,
+        role: session.role,
+      });
+
+      if (handleInterviewActionError(result, router)) return;
+      await advanceAfterQuestion(currentIndex === session.questions.length - 1);
+    } catch {
+      toast.error("Couldn't save your follow-up. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSkipFollowUp = async () => {
+    if (!followUpPhase) return;
+    setLoading(true);
+    try {
+      const result = await skipFollowUp({
+        sessionId: session.id,
+        questionId: followUpPhase.questionId,
+      });
+      if (handleInterviewActionError(result, router)) return;
+      await advanceAfterQuestion(currentIndex === session.questions.length - 1);
+    } catch {
+      toast.error("Failed to skip follow-up");
     } finally {
       setLoading(false);
     }
@@ -181,8 +310,14 @@ export function InterviewSessionClient({ session }: InterviewSessionClientProps)
     if (!currentQuestion) return;
     setLoading(true);
     try {
-      await skipQuestion({ sessionId: session.id, questionId: currentQuestion.id });
+      const result = await skipQuestion({
+        sessionId: session.id,
+        questionId: currentQuestion.id,
+      });
+      if (handleInterviewActionError(result, router)) return;
+
       setAnswer("");
+      setFollowUpPhase(null);
       if (currentIndex === session.questions.length - 1) {
         await handleFinish();
       } else {
@@ -197,7 +332,8 @@ export function InterviewSessionClient({ session }: InterviewSessionClientProps)
 
   const handleAbandon = async () => {
     try {
-      await abandonInterview(session.id);
+      const result = await abandonInterview(session.id);
+      if (handleInterviewActionError(result, router)) return;
       toast.info("Interview abandoned");
       router.push("/mock-interview");
     } catch {
@@ -339,7 +475,7 @@ export function InterviewSessionClient({ session }: InterviewSessionClientProps)
         </div>
       </div>
 
-      {currentQuestion && (
+      {currentQuestion && !lastEval && (
         <div className="surface-card">
           <div className="border-b border-border px-5 py-4">
             <Badge variant="outline" className="text-[10px]">
@@ -369,28 +505,88 @@ export function InterviewSessionClient({ session }: InterviewSessionClientProps)
         </div>
       )}
 
-      {lastEval && (
-        <div className="surface-card p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold tracking-tight">Feedback</h2>
-            <Badge variant="accent" className="tabular-nums">
-              {lastEval.overallScore}%
-            </Badge>
+      {currentQuestion && lastEval && (
+        <div className="surface-card overflow-hidden">
+          <div className="border-b border-border bg-muted/30 px-5 py-3.5">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-[10px]">
+                {currentQuestion.category}
+              </Badge>
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                Original question
+              </span>
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              {currentQuestion.question}
+            </p>
           </div>
-          <div className="mt-4 grid grid-cols-4 gap-2">
-            {[
-              { label: "Technical", value: lastEval.technicalAccuracy },
-              { label: "Communication", value: lastEval.communication },
-              { label: "Confidence", value: lastEval.confidence },
-              { label: "Completeness", value: lastEval.completeness },
-            ].map((m) => (
-              <div key={m.label} className="rounded-lg bg-muted/60 px-2 py-2.5 text-center">
-                <p className="text-lg font-semibold tabular-nums">{m.value}</p>
-                <p className="text-[10px] text-muted-foreground">{m.label}</p>
+
+          <div className="px-5 py-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold tracking-tight">Your evaluation</h2>
+              <Badge variant="accent" className="tabular-nums">
+                {lastEval.overallScore}%
+              </Badge>
+            </div>
+            <div className="mt-4 grid grid-cols-4 gap-2">
+              {[
+                { label: "Technical", value: lastEval.technicalAccuracy },
+                { label: "Communication", value: lastEval.communication },
+                { label: "Confidence", value: lastEval.confidence },
+                { label: "Completeness", value: lastEval.completeness },
+              ].map((m) => (
+                <div key={m.label} className="rounded-lg bg-muted/60 px-2 py-2.5 text-center">
+                  <p className="text-lg font-semibold tabular-nums">{m.value}</p>
+                  <p className="text-[10px] text-muted-foreground">{m.label}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{lastEval.feedback}</p>
+          </div>
+
+          {followUpPhase && (
+            <>
+              <div className="border-t border-border" />
+              <div className="bg-accent/[0.04] px-5 py-5">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/10">
+                    <MessageCircle className="h-3.5 w-3.5 text-accent" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Interviewer follow-up
+                    </p>
+                    <p className="text-[11px] text-muted-foreground/80">
+                      One more question based on your answer
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-4 text-sm font-medium leading-relaxed">{followUpPhase.text}</p>
+                <div className="mt-4 space-y-4">
+                  <Textarea
+                    value={followUpAnswer}
+                    onChange={(e) => setFollowUpAnswer(e.target.value)}
+                    placeholder="Clarify, give an example, or explain trade-offs..."
+                    rows={4}
+                    className="resize-none border-border/80 bg-background/80"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant="accent"
+                      onClick={handleSubmitFollowUp}
+                      disabled={loading || !followUpAnswer.trim()}
+                    >
+                      {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Submit Follow-up
+                    </Button>
+                    <Button variant="outline" onClick={handleSkipFollowUp} disabled={loading}>
+                      Skip Follow-up
+                    </Button>
+                  </div>
+                </div>
               </div>
-            ))}
-          </div>
-          <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{lastEval.feedback}</p>
+            </>
+          )}
         </div>
       )}
     </div>

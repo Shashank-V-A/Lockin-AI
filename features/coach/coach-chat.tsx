@@ -19,7 +19,7 @@ const CoachMarkdown = dynamic(
   },
 );
 
-const SUGGESTED_PROMPTS = [
+const DEFAULT_PROMPTS = [
   "Explain Two Sum with a Python solution and complexity analysis",
   "How should I answer 'Tell me about yourself' in a SWE interview?",
   "Walk me through designing a URL shortener (system design)",
@@ -34,10 +34,17 @@ interface CoachChatProps {
     createdAt: Date;
   }[];
   hasMore?: boolean;
+  suggestedPrompts?: string[];
+  personalizedPrompts?: boolean;
 }
 
 /** AI Coach chat with edit, regenerate, streaming, and pagination. */
-export function CoachChat({ initialMessages, hasMore = false }: CoachChatProps) {
+export function CoachChat({
+  initialMessages,
+  hasMore = false,
+  suggestedPrompts = DEFAULT_PROMPTS,
+  personalizedPrompts = false,
+}: CoachChatProps) {
   const [messages, setMessages] = useState(initialMessages);
   const [canLoadMore, setCanLoadMore] = useState(hasMore);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -235,10 +242,12 @@ export function CoachChat({ initialMessages, hasMore = false }: CoachChatProps) 
               </div>
               <p className="mt-4 text-sm font-medium">What can I help you with?</p>
               <p className="mt-1 max-w-md text-xs text-muted-foreground">
-                Ask coding questions, behavioral prep, system design, or resume advice.
+                {personalizedPrompts
+                  ? "Suggested from your weak areas — tap a prompt to start."
+                  : "Ask coding questions, behavioral prep, system design, or resume advice."}
               </p>
               <div className="mt-6 grid w-full max-w-xl gap-2 sm:grid-cols-2">
-                {SUGGESTED_PROMPTS.map((prompt) => (
+                {suggestedPrompts.map((prompt) => (
                   <button
                     key={prompt}
                     type="button"

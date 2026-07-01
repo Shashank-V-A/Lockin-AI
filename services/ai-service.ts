@@ -5,6 +5,7 @@ import {
   interviewReportSchema,
   codingFeedbackSchema,
   interviewQuestionsSchema,
+  followUpQuestionSchema,
 } from "@/lib/ai-schemas";
 import { prisma } from "@/lib/prisma";
 import type { ResumeAnalysis } from "@/types/resume";
@@ -16,6 +17,8 @@ const RESUME_SYSTEM = `You are an expert technical recruiter and ATS specialist.
 const INTERVIEW_QUESTIONS_SYSTEM = `You are a senior engineering interviewer. Generate interview questions as JSON with a "questions" array. Each item has: question (string), category (string - one of: Technical, Behavioral, System Design, Coding, Culture). Tailor questions to the candidate resume when provided.`;
 
 const ANSWER_EVAL_SYSTEM = `You are an interview evaluator. Score answers 0-100 on technicalAccuracy, communication, confidence, completeness. Return JSON with those fields plus overallScore (average) and feedback (string). Be constructive.`;
+
+const FOLLOW_UP_SYSTEM = `You are a senior interviewer conducting a mock interview. Based on the candidate's answer, ask ONE concise follow-up question that probes deeper — clarify assumptions, edge cases, trade-offs, or real-world application. Return JSON with a single "question" field. Do not repeat the original question.`;
 
 const INTERVIEW_REPORT_SYSTEM = `You are an interview coach. Generate a comprehensive interview report as JSON with: overallScore, summary, strengths, improvements, categoryBreakdown (array of {category, score}), recommendations.`;
 
@@ -136,6 +139,21 @@ export async function evaluateAnswer(params: {
     `Company: ${params.company}\nRole: ${params.role}\nQuestion: ${params.question}\nAnswer: ${params.answer}`,
     answerEvaluationSchema,
   );
+}
+
+/** Generates a follow-up question based on the candidate's answer. */
+export async function generateFollowUpQuestion(params: {
+  question: string;
+  answer: string;
+  company: string;
+  role: string;
+}): Promise<string> {
+  const result = await generateJSON(
+    FOLLOW_UP_SYSTEM,
+    `Company: ${params.company}\nRole: ${params.role}\nOriginal question: ${params.question}\nCandidate answer: ${params.answer}`,
+    followUpQuestionSchema,
+  );
+  return result.question;
 }
 
 /** Generates a final interview session report. */

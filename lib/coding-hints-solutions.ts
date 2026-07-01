@@ -1,3 +1,25 @@
+import {
+  CODING_CPP_SOLUTIONS,
+  CODING_JAVA_SOLUTIONS,
+  CODING_JAVASCRIPT_SOLUTIONS,
+} from "./coding-solutions-multilang";
+
+export type CodingSolutionLanguage = "python" | "javascript" | "java" | "cpp";
+
+const SOLUTION_MAPS: Record<CodingSolutionLanguage, Record<string, string>> = {
+  python: {} as Record<string, string>,
+  javascript: CODING_JAVASCRIPT_SOLUTIONS,
+  java: CODING_JAVA_SOLUTIONS,
+  cpp: CODING_CPP_SOLUTIONS,
+};
+
+const LANGUAGE_LABELS: Record<CodingSolutionLanguage, string> = {
+  python: "Python",
+  javascript: "JavaScript",
+  java: "Java",
+  cpp: "C++",
+};
+
 /** Progressive hints — nudge without giving away the full approach. */
 export const CODING_HINTS: Record<string, string> = {
   "two-sum":
@@ -431,16 +453,60 @@ export const CODING_PYTHON_SOLUTIONS: Record<string, string> = {
     return len(tails)`,
 };
 
-/** Builds the official solution text stored in the database. */
-export function formatOfficialSolution(slug: string, approach: string): string {
-  const code = CODING_PYTHON_SOLUTIONS[slug];
+SOLUTION_MAPS.python = CODING_PYTHON_SOLUTIONS;
+
+function normalizeSolutionLanguage(language: string): CodingSolutionLanguage {
+  if (language === "javascript" || language === "java" || language === "cpp") {
+    return language;
+  }
+  return "python";
+}
+
+/** Extracts the approach line from a stored official-solution string. */
+export function extractApproachFromStoredSolution(stored: string): string {
+  const match = stored.match(/^Approach:\s*([\s\S]+?)(?:\n\n|$)/);
+  if (match) return match[1].trim();
+  const beforeRef = stored.split(/\n\n(?:Python|JavaScript|Java|C\+\+) reference:/)[0];
+  return beforeRef.replace(/^Approach:\s*/, "").trim() || stored.trim();
+}
+
+/** Builds official solution text for the selected editor language. */
+export function resolveOfficialSolution(
+  slug: string,
+  language: string,
+  approach: string,
+): string {
+  const lang = normalizeSolutionLanguage(language);
+  const code = SOLUTION_MAPS[lang][slug];
   const lines = [`Approach: ${approach}`];
+
   if (code) {
-    lines.push("", "Python reference:", code);
+    lines.push("", `${LANGUAGE_LABELS[lang]} reference:`, code);
+    return lines.join("\n");
+  }
+
+  const fallback = CODING_PYTHON_SOLUTIONS[slug];
+  if (fallback && lang !== "python") {
+    lines.push(
+      "",
+      `${LANGUAGE_LABELS[lang]} reference:`,
+      "(Translation coming soon.)",
+      "",
+      "Python reference:",
+      fallback,
+    );
+  } else if (fallback) {
+    lines.push("", "Python reference:", fallback);
   } else {
     lines.push("", "(Reference code coming soon — use the approach above as your guide.)");
   }
+
   return lines.join("\n");
+}
+
+/** Builds the official solution text stored in the database. */
+export function formatOfficialSolution(slug: string, approach: string): string {
+  return resolveOfficialSolution(slug, "python", approach);
 }
 
 /** Resolves a progressive hint for a problem slug. */

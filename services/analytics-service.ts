@@ -176,3 +176,32 @@ function computeChange(data: { score: number }[]): number {
   if (prev === 0) return curr > 0 ? 100 : 0;
   return Math.round(((curr - prev) / prev) * 100);
 }
+
+/** Lightweight weak-area lookup for coach prompts (avoids full analytics aggregation). */
+export async function getWeakAreas(userId: string): Promise<{ area: string; score: number }[]> {
+  return cached(`coach:weak:${userId}`, 120, async () => {
+    const submissions = await prisma.codingSubmission.findMany({
+      where: { userId, score: { not: null } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: {
+        score: true,
+        problem: { select: { topic: true } },
+      },
+    });
+
+    const categoryScores: Record<string, number[]> = {};
+    for (const sub of submissions) {
+      const topic = sub.problem.topic;
+      if (!categoryScores[topic]) categoryScores[topic] = [];
+      categoryScores[topic].push(sub.score!);
+    }
+
+    const areas = Object.entries(categoryScores).map(([area, scores]) => ({
+      area,
+      score: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length),
+    }));
+
+    return [...areas].sort((a, b) => a.score - b.score).slice(0, 3);
+  });
+}

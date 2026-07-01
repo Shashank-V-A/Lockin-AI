@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { requireUserId } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import {
   createInterviewSession,
@@ -13,6 +14,8 @@ import {
   pauseInterviewSession,
   resumeInterviewSession,
   syncInterviewTimer,
+  submitFollowUpAnswer,
+  skipFollowUpAnswer,
 } from "@/services/interview-service";
 import { startInterviewSchema, interviewAnswerSchema } from "@/lib/validations";
 import { enforceRateLimit, RateLimitError } from "@/lib/rate-limit";
@@ -50,46 +53,98 @@ export async function submitAnswer(params: {
   role: string;
   question: string;
 }) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  return withActionResult(async () => {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Unauthorized");
 
-  await enforceRateLimit(session.user.id, "interview");
-  const answer = interviewAnswerSchema.parse(params.answer);
+    await enforceRateLimit(session.user.id, "interview");
+    const answer = interviewAnswerSchema.parse(params.answer);
 
-  const result = await submitInterviewAnswer({
-    userId: session.user.id,
-    sessionId: params.sessionId,
-    questionId: params.questionId,
-    answer,
-    company: params.company,
-    role: params.role,
-    question: params.question,
+    const result = await submitInterviewAnswer({
+      userId: session.user.id,
+      sessionId: params.sessionId,
+      questionId: params.questionId,
+      answer,
+      company: params.company,
+      role: params.role,
+      question: params.question,
+    });
+    revalidatePath("/mock-interview");
+    revalidatePath(`/mock-interview/${params.sessionId}`);
+    return result;
   });
-  revalidatePath("/mock-interview");
-  return result;
+}
+
+/** Submits a follow-up answer for the current question. */
+export async function submitFollowUp(params: {
+  sessionId: string;
+  questionId: string;
+  answer: string;
+  company: string;
+  role: string;
+}) {
+  return withActionResult(async () => {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    await enforceRateLimit(session.user.id, "interview");
+    const answer = interviewAnswerSchema.parse(params.answer);
+
+    const result = await submitFollowUpAnswer({
+      userId: session.user.id,
+      sessionId: params.sessionId,
+      questionId: params.questionId,
+      answer,
+      company: params.company,
+      role: params.role,
+    });
+    revalidatePath("/mock-interview");
+    return result;
+  });
+}
+
+/** Skips the follow-up for the current question. */
+export async function skipFollowUp(params: { sessionId: string; questionId: string }) {
+  return withActionResult(async () => {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    const result = await skipFollowUpAnswer({
+      userId: session.user.id,
+      ...params,
+    });
+    revalidatePath("/mock-interview");
+    return result;
+  });
 }
 
 /** Skips a question. */
 export async function skipQuestion(params: { sessionId: string; questionId: string }) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  return withActionResult(async () => {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const result = await skipInterviewQuestion({
-    userId: session.user.id,
-    ...params,
+    const result = await skipInterviewQuestion({
+      userId: session.user.id,
+      ...params,
+    });
+    revalidatePath("/mock-interview");
+    revalidatePath(`/mock-interview/${params.sessionId}`);
+    return result;
   });
-  revalidatePath("/mock-interview");
-  return result;
 }
 
 /** Abandons an in-progress interview. */
 export async function abandonInterview(sessionId: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  return withActionResult(async () => {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const result = await abandonInterviewSession(sessionId, session.user.id);
-  revalidatePath("/mock-interview");
-  return result;
+    const result = await abandonInterviewSession(sessionId, session.user.id);
+    revalidatePath("/mock-interview");
+    revalidatePath(`/mock-interview/${sessionId}`);
+    return result;
+  });
 }
 
 /** Completes interview and generates report. */
@@ -108,9 +163,8 @@ export async function finishInterview(sessionId: string) {
 
 /** Gets interview session data. */
 export async function fetchInterviewSession(sessionId: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return getInterviewSession(sessionId, session.user.id);
+  const userId = await requireUserId();
+  return getInterviewSession(sessionId, userId);
 }
 
 /** Gets recent interviews for dashboard. */

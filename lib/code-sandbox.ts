@@ -12,6 +12,25 @@ const PISTON_URL = process.env.PISTON_API_URL ?? PUBLIC_PISTON_URL;
 const JUDGE0_URL = process.env.JUDGE0_API_URL;
 const CODE_RUNNER = process.env.CODE_RUNNER ?? "auto";
 
+/** Self-hosted Piston uses /api/v2/execute; the public proxy uses /api/v2/piston/execute. */
+function pistonExecuteUrl(baseUrl: string): string {
+  const base = baseUrl.replace(/\/$/, "");
+  try {
+    const { hostname } = new URL(base);
+    if (hostname !== "emkc.org" && base.endsWith("/piston")) {
+      return `${base.slice(0, -"/piston".length)}/execute`;
+    }
+  } catch {
+    /* ignore malformed URLs */
+  }
+  return `${base}/execute`;
+}
+
+function pistonRuntimesUrl(baseUrl: string): string {
+  const execute = pistonExecuteUrl(baseUrl);
+  return execute.replace(/\/execute$/, "/runtimes");
+}
+
 const PISTON_LANG: Record<string, string> = {
   python: "python",
   javascript: "javascript",
@@ -51,14 +70,37 @@ export async function runSandboxTests(params: {
     const result = await executePistonTests(params);
     if (result) return result;
 
-    // Fall back to public Piston when a local/self-hosted URL is unreachable
-    if (PISTON_URL !== PUBLIC_PISTON_URL) {
-      return executePistonTests(params, PUBLIC_PISTON_URL);
-    }
+    return await pistonUnavailableResult(params, params.start);
   }
 
   return null;
 }
+
+function buildPistonFiles(language: string, content: string): { name?: string; content: string }[] {
+  if (language === "java") {
+    return [{ name: "Main.java", content }];
+  }
+  if (language === "cpp") {
+    return [{ name: "main.cpp", content }];
+  }
+  return [{ content }];
+}
+
+function pistonStageError(
+  stage: { stderr?: string; code?: number; message?: string | null } | undefined,
+  fallback: string,
+): string {
+  const stderr = stage?.stderr?.trim();
+  if (stderr) return stderr.slice(0, 500);
+  if (stage?.message) return stage.message.slice(0, 500);
+  return fallback;
+}
+
+function isPistonCompileFailure(compile: { code?: number } | undefined): boolean {
+  return compile != null && compile.code != null && compile.code !== 0;
+}
+
+export { isPistonCompileFailure };
 
 async function executePistonTests(
   params: {
@@ -78,13 +120,13 @@ async function executePistonTests(
   for (const test of params.testCases) {
     const script = buildScript(params.language, params.fnName, params.code, test);
     try {
-      const res = await fetch(`${baseUrl.replace(/\/$/, "")}/execute`, {
+      const res = await fetch(pistonExecuteUrl(baseUrl), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           language: pistonLang,
           version: "*",
-          files: [{ content: script }],
+          files: buildPistonFiles(params.language, script),
           run_timeout: 8000,
           compile_timeout: 10000,
         }),
@@ -94,12 +136,24 @@ async function executePistonTests(
       if (!res.ok) return null;
 
       const data = (await res.json()) as {
-        run?: { stdout?: string; stderr?: string; code?: number };
-        compile?: { stderr?: string; code?: number };
+        run?: { stdout?: string; stderr?: string; code?: number; message?: string | null };
+        compile?: { stderr?: string; code?: number; message?: string | null };
       };
 
-      if (data.compile?.code !== 0) {
-        return compileErrorResult(params.testCases, data.compile?.stderr ?? "Compilation failed", params.start);
+      if (isPistonCompileFailure(data.compile)) {
+        return compileErrorResult(
+          params.testCases,
+          pistonStageError(data.compile, "Compilation failed"),
+          params.start,
+        );
+      }
+
+      if (data.run?.code != null && data.run.code !== 0) {
+        return compileErrorResult(
+          params.testCases,
+          pistonStageError(data.run, "Execution failed"),
+          params.start,
+        );
       }
 
       const stdout = (data.run?.stdout ?? "").trim();
@@ -209,6 +263,39 @@ function buildResult(testResults: TestResult[], total: number, start: number): E
     runtime: Date.now() - start,
     memory: 0,
   };
+}
+
+async function pistonUnavailableResult(
+  params: { language: string; testCases: TestCase[]; start: number },
+  start: number,
+): Promise<ExecutionResult> {
+  let msg =
+    "Code sandbox unavailable. Start Piston with: docker compose up piston -d";
+
+  try {
+    const res = await fetch(pistonRuntimesUrl(PISTON_URL), {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      const runtimes = (await res.json()) as { language: string }[];
+      if (runtimes.length === 0) {
+        msg =
+          "Piston is running but no language runtimes are installed. Run: npm run piston:setup";
+      } else if (!runtimes.some((r) => r.language === PISTON_LANG[params.language])) {
+        msg = `Piston is missing the ${params.language} runtime. Run: npm run piston:setup`;
+      } else {
+        msg = "Piston request failed. Check docker logs: docker logs lockin-ai-piston-1";
+      }
+    } else {
+      msg =
+        "Cannot reach Piston at localhost:2000. Ensure Docker Desktop is running, then: docker compose up piston -d";
+    }
+  } catch {
+    msg =
+      "Cannot reach Piston at localhost:2000. Ensure Docker Desktop is running, then: docker compose up piston -d";
+  }
+
+  return compileErrorResult(params.testCases, msg, start);
 }
 
 function compileErrorResult(testCases: TestCase[], error: string, start: number): ExecutionResult {

@@ -51,3 +51,7 @@ export const interviewQuestionsSchema = z.object({
     z.object({ question: z.string(), category: z.string() }),
   ),
 });
+
+export const followUpQuestionSchema = z.object({
+  question: z.string(),
+});

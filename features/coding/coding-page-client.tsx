@@ -12,6 +12,7 @@ import {
   Code2,
   Filter,
   Search,
+  Star,
   Target,
   Trophy,
 } from "lucide-react";
@@ -27,10 +28,11 @@ interface CodingPageClientProps {
     topic: string;
   }[];
   progress: CodingProgress;
+  bookmarkIds: string[];
 }
 
 type DifficultyFilter = "ALL" | "EASY" | "MEDIUM" | "HARD";
-type StatusFilter = "ALL" | "SOLVED" | "ATTEMPTED" | "UNSOLVED";
+type StatusFilter = "ALL" | "SOLVED" | "ATTEMPTED" | "UNSOLVED" | "BOOKMARKED";
 
 const DIFFICULTY_STYLE: Record<string, string> = {
   EASY: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
@@ -45,7 +47,7 @@ const DIFFICULTY_BORDER: Record<string, string> = {
 };
 
 /** Redesigned coding problems page with scorecard, filters, and search. */
-export function CodingPageClient({ problems, progress }: CodingPageClientProps) {
+export function CodingPageClient({ problems, progress, bookmarkIds }: CodingPageClientProps) {
   const [search, setSearch] = useState("");
   const [difficulty, setDifficulty] = useState<DifficultyFilter>("ALL");
   const [status, setStatus] = useState<StatusFilter>("ALL");
@@ -53,6 +55,7 @@ export function CodingPageClient({ problems, progress }: CodingPageClientProps) 
 
   const solvedSet = useMemo(() => new Set(progress.solvedIds), [progress.solvedIds]);
   const attemptedSet = useMemo(() => new Set(progress.attemptedIds), [progress.attemptedIds]);
+  const bookmarkSet = useMemo(() => new Set(bookmarkIds), [bookmarkIds]);
 
   const topics = useMemo(
     () => ["ALL", ...Array.from(new Set(problems.map((p) => p.topic))).sort()],
@@ -69,6 +72,7 @@ export function CodingPageClient({ problems, progress }: CodingPageClientProps) 
       if (status === "SOLVED" && !isSolved) return false;
       if (status === "ATTEMPTED" && !isAttempted) return false;
       if (status === "UNSOLVED" && (isSolved || isAttempted)) return false;
+      if (status === "BOOKMARKED" && !bookmarkSet.has(p.id)) return false;
       if (search.trim()) {
         const q = search.toLowerCase();
         return (
@@ -79,7 +83,7 @@ export function CodingPageClient({ problems, progress }: CodingPageClientProps) 
       }
       return true;
     });
-  }, [problems, difficulty, topic, status, search, solvedSet, attemptedSet]);
+  }, [problems, difficulty, topic, status, search, solvedSet, attemptedSet, bookmarkSet]);
 
   const pct = progress.total > 0 ? Math.round((progress.solved / progress.total) * 100) : 0;
 
@@ -174,6 +178,7 @@ export function CodingPageClient({ problems, progress }: CodingPageClientProps) 
               ["SOLVED", "Solved"],
               ["ATTEMPTED", "Attempted"],
               ["UNSOLVED", "Unsolved"],
+              ["BOOKMARKED", "Bookmarked"],
             ] as const
           ).map(([value, label]) => (
             <FilterPill key={value} active={status === value} onClick={() => setStatus(value)}>
@@ -208,6 +213,7 @@ export function CodingPageClient({ problems, progress }: CodingPageClientProps) 
           filtered.map((problem) => {
             const isSolved = solvedSet.has(problem.id);
             const isAttempted = attemptedSet.has(problem.id) && !isSolved;
+            const isBookmarked = bookmarkSet.has(problem.id);
             const num = problems.findIndex((x) => x.id === problem.id) + 1;
 
             return (
@@ -237,6 +243,9 @@ export function CodingPageClient({ problems, progress }: CodingPageClientProps) 
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium">{problem.title}</span>
+                      {isBookmarked && (
+                        <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                      )}
                       <span
                         className={cn(
                           "rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",

@@ -62,18 +62,61 @@ export async function processResume(resumeId: string, rawText: string) {
   }
 }
 
-/** Gets all resumes for a user. */
-export async function getUserResumes(userId: string) {
+/** Gets resume list summaries (excludes heavy rawText/analysis payloads). */
+export async function getUserResumeSummaries(userId: string) {
   return prisma.resume.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      fileName: true,
+      fileUrl: true,
+      atsScore: true,
+      status: true,
+      createdAt: true,
+    },
   });
+}
+
+/** Gets resume list plus analysis for the most recent completed resume (page load). */
+export async function getUserResumesPageData(userId: string) {
+  const resumes = await getUserResumeSummaries(userId);
+  const latestCompleted = resumes.find((r) => r.status === "COMPLETED");
+
+  let initialAnalysis: ResumeAnalysis | null = null;
+  if (latestCompleted) {
+    const record = await prisma.resume.findFirst({
+      where: { id: latestCompleted.id, userId },
+      select: { analysis: true },
+    });
+    initialAnalysis = (record?.analysis as ResumeAnalysis | null) ?? null;
+  }
+
+  return {
+    resumes,
+    initialAnalysisId: latestCompleted?.id ?? null,
+    initialAnalysis,
+  };
+}
+
+/** Gets all resumes for a user. */
+export async function getUserResumes(userId: string) {
+  return getUserResumeSummaries(userId);
 }
 
 /** Gets a single resume by ID. */
 export async function getResumeById(userId: string, resumeId: string) {
   return prisma.resume.findFirst({
     where: { id: resumeId, userId },
+    select: {
+      id: true,
+      fileName: true,
+      fileUrl: true,
+      atsScore: true,
+      analysis: true,
+      status: true,
+      createdAt: true,
+    },
   });
 }
 

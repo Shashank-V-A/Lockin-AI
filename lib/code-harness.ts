@@ -89,11 +89,27 @@ function normalizeCppUserCode(code: string): string {
 }
 
 export function buildPythonScript(userCode: string, fnName: string, test: TestCase): string {
-  return `${userCode}\nimport json\nresult = ${fnName}(${test.input})\nprint(json.dumps(result) if not isinstance(result, (int, float, bool)) else result)`;
+  return `${userCode}
+import json
+result = ${fnName}(${test.input})
+if isinstance(result, bool):
+    print("True" if result else "False")
+elif isinstance(result, (int, float)):
+    print(result)
+else:
+    print(json.dumps(result))`;
 }
 
 export function buildJsScript(userCode: string, fnName: string, test: TestCase): string {
-  return `${userCode}\nconst result = ${fnName}(${test.input});\nconsole.log(typeof result === "object" ? JSON.stringify(result) : String(result));`;
+  return `${userCode}
+const result = ${fnName}(${test.input});
+if (typeof result === "boolean") {
+  console.log(result ? "True" : "False");
+} else if (typeof result === "object" && result !== null) {
+  console.log(JSON.stringify(result));
+} else {
+  console.log(String(result));
+}`;
 }
 
 export function buildJavaHarnessScript(userCode: string, fnName: string, test: TestCase): string {
@@ -102,8 +118,6 @@ export function buildJavaHarnessScript(userCode: string, fnName: string, test: T
   const argLiterals = args.map(javaLiteral).join(", ");
 
   return `import java.util.*;
-
-${solution}
 
 public class Main {
   static String formatResult(Object result) {
@@ -117,7 +131,10 @@ public class Main {
       sb.append("]");
       return sb.toString();
     }
-    if (result instanceof Boolean || result instanceof Integer || result instanceof Long || result instanceof Double) {
+    if (result instanceof Boolean) {
+      return (Boolean) result ? "True" : "False";
+    }
+    if (result instanceof Integer || result instanceof Long || result instanceof Double) {
       return String.valueOf(result);
     }
     if (result instanceof String) {
@@ -131,7 +148,9 @@ public class Main {
     Object result = s.${fnName}(${argLiterals});
     System.out.print(formatResult(result));
   }
-}`;
+}
+
+${solution}`;
 }
 
 function cppPrintStatement(expected: string): string {
@@ -139,6 +158,9 @@ function cppPrintStatement(expected: string): string {
     return `cout << "[" << result[0];
     for (size_t i = 1; i < result.size(); i++) cout << "," << result[i];
     cout << "]";`;
+  }
+  if (expected === "True" || expected === "False") {
+    return `cout << (result ? "True" : "False");`;
   }
   if (expected === "true" || expected === "false") {
     return `cout << (result ? "true" : "false");`;

@@ -74,7 +74,13 @@ services:
     ports:
       - "2000:2000"
     privileged: true
+    volumes:
+      - piston_packages:/piston/packages
+    environment:
+      - PISTON_COMPILE_TIMEOUT=30000
+      - PISTON_RUN_TIMEOUT=10000
     restart: unless-stopped
 
 volumes:
   postgres_data:
+  piston_packages:

@@ -5,8 +5,10 @@ import "dotenv/config";
 import { CODING_PROBLEMS } from "../lib/coding-problems-data";
 import { formatOfficialSolution, resolveCodingHint } from "../lib/coding-hints-solutions";
 
+import { normalizeDatabaseUrl } from "../lib/db-connection-string";
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: normalizeDatabaseUrl(process.env.DATABASE_URL ?? ""),
 });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });

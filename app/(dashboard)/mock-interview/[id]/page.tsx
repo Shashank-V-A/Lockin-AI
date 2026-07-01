@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { fetchInterviewSession } from "@/actions/interview-actions";
 import { InterviewSessionClient } from "@/features/interview/interview-session-client";
 
@@ -13,6 +13,10 @@ export default async function InterviewSessionPage({
   const { id } = await params;
   const session = await fetchInterviewSession(id);
   if (!session) notFound();
+
+  if (session.status === "ABANDONED") {
+    redirect("/mock-interview?notice=abandoned");
+  }
 
   return <InterviewSessionClient session={session} />;
 }

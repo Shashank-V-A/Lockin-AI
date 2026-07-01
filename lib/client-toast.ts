@@ -8,6 +8,7 @@ const MESSAGES: Record<string, string> = {
   RATE_LIMIT: "Too many requests — please wait and try again.",
   VALIDATION: "Invalid input. Check your data and try again.",
   NOT_FOUND: "The requested item was not found.",
+  SESSION_INACTIVE: "This interview is no longer active. Start a new session.",
   INTERNAL: "Something went wrong. Please try again.",
 };
 
@@ -16,6 +17,6 @@ export function toastActionError<T>(
   result: ActionResult<T>,
 ): result is Extract<ActionResult<T>, { ok: false }> {
   if (result.ok) return false;
-  toast.error(MESSAGES[result.code] ?? result.error);
+  toast.error(result.error || MESSAGES[result.code] || MESSAGES.INTERNAL);
   return true;
 }

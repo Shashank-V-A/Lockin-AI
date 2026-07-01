@@ -1,14 +1,18 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import { after } from "next/server";
+import { requireUserId } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import {
   createResumeRecord,
   getUserResumes,
+  getUserResumesPageData,
   getResumeById,
   deleteResume,
   exportUserData,
 } from "@/services/resume-service";
+import type { ResumeAnalysis } from "@/types/resume";
+import { claimAndProcessResume } from "@/services/resume-worker";
 import { resumeUploadSchema } from "@/lib/validations";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { invalidateDashboardCache } from "@/lib/redis";
@@ -22,18 +26,25 @@ export async function saveAndAnalyzeResume(params: {
   rawText: string;
 }) {
   return withActionResult(async () => {
-    const session = await auth();
-    if (!session?.user?.id) throw new Error("Unauthorized");
+    const userId = await requireUserId();
 
-    await enforceRateLimit(session.user.id, "resume");
+    await enforceRateLimit(userId, "resume");
     const validated = resumeUploadSchema.parse(params);
 
     const resume = await createResumeRecord({
-      userId: session.user.id,
+      userId,
       fileName: validated.fileName,
       fileUrl: validated.fileUrl,
       fileKey: validated.fileKey,
       rawText: validated.rawText,
+    });
+
+    after(async () => {
+      try {
+        await claimAndProcessResume(resume.id);
+      } catch {
+        /* logged in worker */
+      }
     });
 
     revalidatePath("/resume");
@@ -43,9 +54,8 @@ export async function saveAndAnalyzeResume(params: {
 
 /** Polls resume processing status. */
 export async function fetchResumeStatus(resumeId: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  const resume = await getResumeById(session.user.id, resumeId);
+  const userId = await requireUserId();
+  const resume = await getResumeById(userId, resumeId);
   if (!resume) throw new Error("Resume not found");
   return {
     id: resume.id,
@@ -57,32 +67,42 @@ export async function fetchResumeStatus(resumeId: string) {
 
 /** Gets all resumes for the current user. */
 export async function fetchUserResumes() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return getUserResumes(session.user.id);
+  const userId = await requireUserId();
+  return getUserResumes(userId);
+}
+
+/** Gets resume list and preloads analysis for the latest completed resume. */
+export async function fetchResumePageData() {
+  const userId = await requireUserId();
+  return getUserResumesPageData(userId);
+}
+
+/** Gets analysis JSON for a resume (lightweight client fetch). */
+export async function fetchResumeAnalysis(resumeId: string) {
+  const userId = await requireUserId();
+  const record = await getResumeById(userId, resumeId);
+  if (!record?.analysis) return null;
+  return record.analysis as unknown as ResumeAnalysis;
 }
 
 /** Gets a single resume for the current user. */
 export async function fetchResume(resumeId: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return getResumeById(session.user.id, resumeId);
+  const userId = await requireUserId();
+  return getResumeById(userId, resumeId);
 }
 
 /** Deletes a resume. */
 export async function removeResume(resumeId: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const userId = await requireUserId();
 
-  await deleteResume(session.user.id, resumeId);
-  await invalidateDashboardCache(session.user.id);
+  await deleteResume(userId, resumeId);
+  await invalidateDashboardCache(userId);
   revalidatePath("/resume");
   revalidatePath("/dashboard");
 }
 
 /** Exports user data as JSON. */
 export async function exportAccountData() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return exportUserData(session.user.id);
+  const userId = await requireUserId();
+  return exportUserData(userId);
 }

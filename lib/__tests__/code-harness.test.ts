@@ -13,7 +13,7 @@ describe("code-harness", () => {
       { input: "[2,7,11,15], 9", expectedOutput: "[0,1]" },
     );
     expect(script).toContain("public class Main");
-    expect(script).toContain("twoSum");
+    expect(script.indexOf("public class Main")).toBeLessThan(script.indexOf("class Solution"));
   });
 
   it("builds cpp harness for two sum", () => {

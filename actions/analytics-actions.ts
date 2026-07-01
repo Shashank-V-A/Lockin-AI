@@ -1,28 +1,25 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import { requireUserId } from "@/lib/session";
 import { getDashboardPageData, getDashboardStats } from "@/services/analytics-service";
 
 /** Fetches dashboard stats only (fast path for initial paint). */
 export async function fetchDashboardStats() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return getDashboardStats(session.user.id);
+  const userId = await requireUserId();
+  return getDashboardStats(userId);
 }
 
 /** Fetches combined dashboard stats and analytics. */
 export async function fetchDashboardPageData() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return getDashboardPageData(session.user.id);
+  const userId = await requireUserId();
+  return getDashboardPageData(userId);
 }
 
 /** Fetches analytics subset for PDF report generation. */
 export async function fetchResumeReportAnalytics() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const userId = await requireUserId();
 
-  const { stats, analytics } = await getDashboardPageData(session.user.id);
+  const { stats, analytics } = await getDashboardPageData(userId);
 
   return {
     readinessScore: stats.readinessScore,

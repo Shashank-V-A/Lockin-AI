@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack",
+    "dev": "prisma generate && next dev --webpack",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
@@ -17,6 +17,7 @@
     "db:push": "prisma db push",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:studio": "prisma studio",
+    "piston:setup": "node scripts/setup-piston.mjs",
     "postinstall": "prisma generate"
   },
   "prisma": {

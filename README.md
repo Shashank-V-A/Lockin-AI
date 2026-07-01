@@ -29,7 +29,8 @@ Optional self-hosted code runner:
 
 ```bash
 docker compose up piston -d
-# Set PISTON_API_URL=http://localhost:2000/api/v2/piston in .env
+npm run piston:setup   # one-time: installs python, javascript, java, c++
+# Set PISTON_API_URL=http://localhost:2000/api/v2 in .env
 ```
 
 ## Getting Started

@@ -1,18 +1,18 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import { requireUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { coachMessageSchema } from "@/lib/validations";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { generateCoachResponse } from "@/services/ai-service";
+import { getCoachSuggestedPrompts } from "@/services/coach-service";
 import { COACH_PAGE_SIZE, COACH_CONTEXT_LIMIT } from "@/lib/coach-config";
 
-async function requireUserId() {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId) throw new Error("Unauthorized");
-  return userId;
+/** Gets personalized coach suggested prompts from analytics weak areas. */
+export async function fetchCoachSuggestedPrompts() {
+  const userId = await requireUserId();
+  return getCoachSuggestedPrompts(userId);
 }
 
 /** Loads older coach messages before a cursor timestamp. */

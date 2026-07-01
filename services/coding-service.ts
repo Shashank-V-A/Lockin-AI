@@ -1,21 +1,30 @@
 import { prisma } from "@/lib/prisma";
 import { runCodeTests } from "@/lib/code-runner";
 import { analyzeCodingSubmission } from "@/services/ai-service";
-import { resolveCodingHint } from "@/lib/coding-hints-solutions";
+import { resolveCodingHint, extractApproachFromStoredSolution, resolveOfficialSolution } from "@/lib/coding-hints-solutions";
+import { cached } from "@/lib/redis";
+import { unstable_cache } from "next/cache";
 import type { CodingFeedback, TestCase } from "@/types/coding";
+
+const getCachedCodingProblems = unstable_cache(
+  async () =>
+    prisma.codingProblem.findMany({
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        difficulty: true,
+        topic: true,
+      },
+      orderBy: [{ difficulty: "asc" }, { title: "asc" }],
+    }),
+  ["coding-problems-list"],
+  { revalidate: 3600, tags: ["coding-problems"] },
+);
 
 /** Gets all coding problems. */
 export async function getCodingProblems() {
-  return prisma.codingProblem.findMany({
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      difficulty: true,
-      topic: true,
-    },
-    orderBy: [{ difficulty: "asc" }, { title: "asc" }],
-  });
+  return getCachedCodingProblems();
 }
 
 /** Gets a coding problem by slug (excludes solution and test cases). */
@@ -155,45 +164,82 @@ export interface CodingProgress {
 
 /** Gets user coding progress across all problems. */
 export async function getCodingProgress(userId: string): Promise<CodingProgress> {
-  const [problems, passedSubs, allSubs] = await Promise.all([
-    prisma.codingProblem.findMany({
-      select: { id: true, difficulty: true },
-    }),
-    prisma.codingSubmission.findMany({
-      where: { userId, status: "PASSED" },
-      select: { problemId: true },
-      distinct: ["problemId"],
-    }),
-    prisma.codingSubmission.findMany({
-      where: { userId },
-      select: { problemId: true },
-      distinct: ["problemId"],
-    }),
+  return cached(`coding:progress:${userId}`, 60, async () => {
+    const [problems, submissions] = await Promise.all([
+      prisma.codingProblem.findMany({
+        select: { id: true, difficulty: true },
+      }),
+      prisma.codingSubmission.findMany({
+        where: { userId },
+        select: { problemId: true, status: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: 500,
+      }),
+    ]);
+
+    const latestByProblem = new Map<string, string>();
+    for (const sub of submissions) {
+      if (!latestByProblem.has(sub.problemId)) {
+        latestByProblem.set(sub.problemId, sub.status);
+      }
+    }
+
+    const solvedIds: string[] = [];
+    const attemptedIds: string[] = [];
+    for (const [problemId, status] of latestByProblem) {
+      attemptedIds.push(problemId);
+      if (status === "PASSED") solvedIds.push(problemId);
+    }
+
+    const solvedSet = new Set(solvedIds);
+    const byDifficulty = { easy: 0, medium: 0, hard: 0 };
+    for (const p of problems) {
+      if (!solvedSet.has(p.id)) continue;
+      if (p.difficulty === "EASY") byDifficulty.easy++;
+      else if (p.difficulty === "MEDIUM") byDifficulty.medium++;
+      else byDifficulty.hard++;
+    }
+
+    const solved = solvedIds.length;
+    const total = problems.length;
+
+    return {
+      total,
+      solved,
+      attempted: attemptedIds.length,
+      unsolved: total - solved,
+      solvedIds,
+      attemptedIds,
+      byDifficulty,
+    };
+  });
+}
+
+/** Batched data for the coding problems listing page. */
+export async function getCodingPageData(userId: string) {
+  const [problems, progress, bookmarkIds] = await Promise.all([
+    getCodingProblems(),
+    getCodingProgress(userId),
+    getBookmarkedProblemIds(userId),
   ]);
 
-  const solvedIds = passedSubs.map((s) => s.problemId);
-  const attemptedIds = allSubs.map((s) => s.problemId);
-  const solvedSet = new Set(solvedIds);
+  return { problems, progress, bookmarkIds };
+}
 
-  const byDifficulty = { easy: 0, medium: 0, hard: 0 };
-  for (const p of problems) {
-    if (!solvedSet.has(p.id)) continue;
-    if (p.difficulty === "EASY") byDifficulty.easy++;
-    else if (p.difficulty === "MEDIUM") byDifficulty.medium++;
-    else byDifficulty.hard++;
-  }
+/** Batched data for an individual coding problem page. */
+export async function getCodingProblemPageData(userId: string, slug: string) {
+  const problem = await getCodingProblem(slug);
+  if (!problem) return null;
 
-  const solved = solvedIds.length;
-  const total = problems.length;
+  const [draft, bookmarkIds] = await Promise.all([
+    getCodingDraft(userId, problem.id),
+    getBookmarkedProblemIds(userId),
+  ]);
 
   return {
-    total,
-    solved,
-    attempted: attemptedIds.length,
-    unsolved: total - solved,
-    solvedIds,
-    attemptedIds,
-    byDifficulty,
+    problem,
+    draft,
+    bookmarked: bookmarkIds.includes(problem.id),
   };
 }
 
@@ -217,7 +263,11 @@ export async function getCodingHint(userId: string, problemId: string) {
 }
 
 /** Returns the official solution after a failed or partial submission. */
-export async function getCodingSolution(userId: string, problemId: string) {
+export async function getCodingSolution(
+  userId: string,
+  problemId: string,
+  language: string,
+) {
   const attempt = await prisma.codingSubmission.findFirst({
     where: { userId, problemId, status: { in: ["FAILED", "ERROR"] } },
   });
@@ -230,9 +280,75 @@ export async function getCodingSolution(userId: string, problemId: string) {
 
   const problem = await prisma.codingProblem.findUnique({
     where: { id: problemId },
-    select: { solution: true },
+    select: { slug: true, solution: true },
   });
   if (!problem?.solution) throw new Error("No solution available");
 
-  return { solution: problem.solution };
+  const approach = extractApproachFromStoredSolution(problem.solution);
+
+  return {
+    solution: resolveOfficialSolution(problem.slug, language, approach),
+  };
+}
+
+/** Gets bookmarked problem IDs for a user. */
+export async function getBookmarkedProblemIds(userId: string): Promise<string[]> {
+  const rows = await prisma.codingBookmark.findMany({
+    where: { userId },
+    select: { problemId: true },
+  });
+  return rows.map((r) => r.problemId);
+}
+
+/** Toggles bookmark on a coding problem. Returns new bookmarked state. */
+export async function toggleCodingBookmark(
+  userId: string,
+  problemId: string,
+): Promise<boolean> {
+  const existing = await prisma.codingBookmark.findUnique({
+    where: { userId_problemId: { userId, problemId } },
+  });
+
+  if (existing) {
+    await prisma.codingBookmark.delete({ where: { id: existing.id } });
+    return false;
+  }
+
+  await prisma.codingBookmark.create({ data: { userId, problemId } });
+  return true;
+}
+
+/** Saves in-progress code for a problem. */
+export async function saveCodingDraft(params: {
+  userId: string;
+  problemId: string;
+  language: string;
+  code: string;
+}) {
+  return prisma.codingDraft.upsert({
+    where: {
+      userId_problemId: {
+        userId: params.userId,
+        problemId: params.problemId,
+      },
+    },
+    create: {
+      userId: params.userId,
+      problemId: params.problemId,
+      language: params.language,
+      code: params.code,
+    },
+    update: {
+      language: params.language,
+      code: params.code,
+    },
+  });
+}
+
+/** Gets saved draft for a problem, if any. */
+export async function getCodingDraft(userId: string, problemId: string) {
+  return prisma.codingDraft.findUnique({
+    where: { userId_problemId: { userId, problemId } },
+    select: { language: true, code: true, updatedAt: true },
+  });
 }

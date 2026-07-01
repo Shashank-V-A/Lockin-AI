@@ -3,9 +3,24 @@ import {
   generateInterviewQuestions,
   evaluateAnswer,
   generateInterviewReport,
+  generateFollowUpQuestion,
 } from "@/services/ai-service";
 import { getLatestResumeForUser } from "@/services/resume-service";
 import type { AnswerEvaluation, InterviewReport } from "@/types/interview";
+import { toInterviewAnswerResult, type InterviewAnswerResult } from "@/lib/interview-payload";
+
+export type { InterviewAnswerResult };
+
+function roundEvaluation(evaluation: AnswerEvaluation) {
+  return {
+    technicalAccuracy: Math.round(evaluation.technicalAccuracy),
+    communication: Math.round(evaluation.communication),
+    confidence: Math.round(evaluation.confidence),
+    completeness: Math.round(evaluation.completeness),
+    overallScore: Math.round(evaluation.overallScore),
+    feedback: evaluation.feedback,
+  };
+}
 
 /** Verifies session ownership and in-progress status. */
 async function getOwnedSession(sessionId: string, userId: string) {
@@ -18,6 +33,19 @@ async function getOwnedSession(sessionId: string, userId: string) {
   });
   if (!session) throw new Error("Session not found");
   return session;
+}
+
+/** True when main answer exists and follow-up is done or skipped. */
+export function isQuestionFullyAnswered(answer: {
+  followUpQuestion: string | null;
+  followUpAnswer: string | null;
+  followUpSkipped: boolean;
+} | undefined): boolean {
+  if (!answer) return false;
+  if (answer.followUpQuestion && !answer.followUpAnswer && !answer.followUpSkipped) {
+    return false;
+  }
+  return true;
 }
 
 /** Creates a new mock interview session with AI-generated questions. */
@@ -58,7 +86,7 @@ export async function createInterviewSession(params: {
   });
 }
 
-/** Submits and evaluates an interview answer (ownership verified). */
+/** Submits and evaluates an interview answer, then generates a follow-up question. */
 export async function submitInterviewAnswer(params: {
   userId: string;
   sessionId: string;
@@ -67,7 +95,7 @@ export async function submitInterviewAnswer(params: {
   company: string;
   role: string;
   question: string;
-}) {
+}): Promise<InterviewAnswerResult> {
   const session = await getOwnedSession(params.sessionId, params.userId);
   if (session.status !== "IN_PROGRESS") {
     throw new Error("Interview session is not active");
@@ -86,18 +114,96 @@ export async function submitInterviewAnswer(params: {
     role: params.role,
   });
 
-  return prisma.interviewAnswer.create({
+  const scores = roundEvaluation(evaluation);
+
+  const active = await prisma.interviewSession.findFirst({
+    where: { id: params.sessionId, userId: params.userId, status: "IN_PROGRESS" },
+    select: { id: true },
+  });
+  if (!active) throw new Error("Interview session is not active");
+
+  const created = await prisma.interviewAnswer.create({
     data: {
       sessionId: params.sessionId,
       questionId: params.questionId,
       answer: params.answer,
-      technicalAccuracy: evaluation.technicalAccuracy,
-      communication: evaluation.communication,
-      confidence: evaluation.confidence,
-      completeness: evaluation.completeness,
-      overallScore: evaluation.overallScore,
-      feedback: evaluation.feedback,
+      ...scores,
     },
+  });
+
+  let followUpQuestion: string | null = null;
+  try {
+    followUpQuestion = await generateFollowUpQuestion({
+      question: params.question,
+      answer: params.answer,
+      company: params.company,
+      role: params.role,
+    });
+  } catch {
+    followUpQuestion = "Can you elaborate on a specific example from your experience?";
+  }
+
+  try {
+    const updated = await prisma.interviewAnswer.update({
+      where: { id: created.id },
+      data: { followUpQuestion },
+    });
+    return toInterviewAnswerResult(updated);
+  } catch {
+    return toInterviewAnswerResult({ ...created, followUpQuestion });
+  }
+}
+
+/** Submits and evaluates a follow-up answer. */
+export async function submitFollowUpAnswer(params: {
+  userId: string;
+  sessionId: string;
+  questionId: string;
+  answer: string;
+  company: string;
+  role: string;
+}) {
+  const session = await getOwnedSession(params.sessionId, params.userId);
+  if (session.status !== "IN_PROGRESS") throw new Error("Interview session is not active");
+
+  const record = session.answers.find((a) => a.questionId === params.questionId);
+  if (!record?.followUpQuestion) throw new Error("No follow-up pending");
+  if (record.followUpAnswer || record.followUpSkipped) {
+    throw new Error("Follow-up already completed");
+  }
+
+  const evaluation = await evaluateAnswer({
+    question: record.followUpQuestion,
+    answer: params.answer,
+    company: params.company,
+    role: params.role,
+  });
+
+  const scores = roundEvaluation(evaluation);
+
+  return prisma.interviewAnswer.update({
+    where: { id: record.id },
+    data: {
+      followUpAnswer: params.answer,
+      followUpScore: scores.overallScore,
+      followUpFeedback: scores.feedback,
+    },
+  });
+}
+
+/** Skips the follow-up for a question. */
+export async function skipFollowUpAnswer(params: {
+  userId: string;
+  sessionId: string;
+  questionId: string;
+}) {
+  const session = await getOwnedSession(params.sessionId, params.userId);
+  const record = session.answers.find((a) => a.questionId === params.questionId);
+  if (!record?.followUpQuestion) throw new Error("No follow-up pending");
+
+  return prisma.interviewAnswer.update({
+    where: { id: record.id },
+    data: { followUpSkipped: true },
   });
 }
 
@@ -106,7 +212,7 @@ export async function skipInterviewQuestion(params: {
   userId: string;
   sessionId: string;
   questionId: string;
-}) {
+}): Promise<InterviewAnswerResult> {
   const session = await getOwnedSession(params.sessionId, params.userId);
   if (session.status !== "IN_PROGRESS") throw new Error("Interview session is not active");
 
@@ -116,7 +222,7 @@ export async function skipInterviewQuestion(params: {
   const existing = session.answers.find((a) => a.questionId === params.questionId);
   if (existing) throw new Error("Question already answered");
 
-  return prisma.interviewAnswer.create({
+  const created = await prisma.interviewAnswer.create({
     data: {
       sessionId: params.sessionId,
       questionId: params.questionId,
@@ -127,8 +233,11 @@ export async function skipInterviewQuestion(params: {
       completeness: 0,
       overallScore: 0,
       feedback: "Question was skipped.",
+      followUpSkipped: true,
     },
   });
+
+  return toInterviewAnswerResult(created);
 }
 
 /** Marks session as abandoned. */
@@ -151,9 +260,11 @@ export async function completeInterviewSession(sessionId: string, userId: string
     throw new Error("Interview session is not active");
   }
 
-  const qaPairs = session.questions.map((q) => {
+  const qaPairs: { question: string; answer: string; scores: AnswerEvaluation }[] = [];
+
+  for (const q of session.questions) {
     const answer = session.answers.find((a) => a.questionId === q.id);
-    return {
+    qaPairs.push({
       question: q.question,
       answer: answer?.answer ?? "",
       scores: {
@@ -164,8 +275,23 @@ export async function completeInterviewSession(sessionId: string, userId: string
         overallScore: answer?.overallScore ?? 0,
         feedback: answer?.feedback ?? "",
       } satisfies AnswerEvaluation,
-    };
-  });
+    });
+
+    if (answer?.followUpQuestion && answer.followUpAnswer) {
+      qaPairs.push({
+        question: `[Follow-up] ${answer.followUpQuestion}`,
+        answer: answer.followUpAnswer,
+        scores: {
+          technicalAccuracy: answer.followUpScore ?? 0,
+          communication: answer.followUpScore ?? 0,
+          confidence: answer.followUpScore ?? 0,
+          completeness: answer.followUpScore ?? 0,
+          overallScore: answer.followUpScore ?? 0,
+          feedback: answer.followUpFeedback ?? "",
+        } satisfies AnswerEvaluation,
+      });
+    }
+  }
 
   const report = await generateInterviewReport({
     company: session.company,
@@ -202,7 +328,22 @@ export async function getInterviewSession(sessionId: string, userId: string) {
     where: { id: sessionId, userId },
     include: {
       questions: { orderBy: { order: "asc" } },
-      answers: true,
+      answers: {
+        select: {
+          questionId: true,
+          overallScore: true,
+          feedback: true,
+          technicalAccuracy: true,
+          communication: true,
+          confidence: true,
+          completeness: true,
+          followUpQuestion: true,
+          followUpAnswer: true,
+          followUpScore: true,
+          followUpFeedback: true,
+          followUpSkipped: true,
+        },
+      },
     },
   });
 }

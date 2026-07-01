@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { submitCode, runCode, revealCodingHint, revealCodingSolution } from "@/actions/coding-actions";
+import { submitCode, runCode, revealCodingHint, revealCodingSolution, saveDraft, toggleBookmark } from "@/actions/coding-actions";
 import { CodeEditor } from "@/components/coding/code-editor";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,7 @@ import {
   Lightbulb,
   BookOpen,
   Download,
+  Star,
 } from "lucide-react";
 import type { CodingFeedback } from "@/types/coding";
 import type { TestResult } from "@/lib/code-runner";
@@ -54,25 +55,76 @@ interface CodingProblemClientProps {
     starterCode: unknown;
     timeLimit: number;
   };
+  initialDraft?: { language: string; code: string; updatedAt: Date } | null;
+  initialBookmarked?: boolean;
 }
 
-/** Coding assessment editor with timer, hints, and submission. */
-export function CodingProblemClient({ problem }: CodingProblemClientProps) {
+/** Coding assessment editor with timer, hints, bookmarks, and draft restore. */
+export function CodingProblemClient({
+  problem,
+  initialDraft,
+  initialBookmarked = false,
+}: CodingProblemClientProps) {
   const router = useRouter();
   const starterCode = problem.starterCode as Record<string, string>;
-  const [language, setLanguage] = useState("python");
-  const [code, setCode] = useState(starterCode.python ?? "");
+  const defaultLang = initialDraft?.language ?? "python";
+  const defaultCode =
+    initialDraft?.code ?? starterCode[defaultLang] ?? starterCode.python ?? "";
+
+  const [language, setLanguage] = useState(defaultLang);
+  const [code, setCode] = useState(defaultCode);
+  const [bookmarked, setBookmarked] = useState(initialBookmarked);
+  const [draftSaved, setDraftSaved] = useState(false);
   const [timeLeft, setTimeLeft] = useState(problem.timeLimit * 60);
   const [running, setRunning] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<ResultState | null>(null);
   const [hint, setHint] = useState<string | null>(null);
   const [solution, setSolution] = useState<string | null>(null);
+  const solutionRevealedRef = useRef(false);
+
+  const fetchSolution = useCallback(
+    async (lang: string) => {
+      setLoadingSolution(true);
+      try {
+        const res = await revealCodingSolution(problem.id, lang);
+        setSolution(res.solution);
+        solutionRevealedRef.current = true;
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Solution unavailable");
+      } finally {
+        setLoadingSolution(false);
+      }
+    },
+    [problem.id],
+  );
   const [loadingHint, setLoadingHint] = useState(false);
   const [loadingSolution, setLoadingSolution] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [editorHeight, setEditorHeight] = useState(400);
   const autoSubmitted = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (initialDraft) {
+      toast.info("Restored your last saved code");
+    }
+  }, [initialDraft]);
+
+  useEffect(() => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveDraft({ problemId: problem.id, language, code })
+        .then(() => {
+          setDraftSaved(true);
+          setTimeout(() => setDraftSaved(false), 2000);
+        })
+        .catch(() => {});
+    }, 2000);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [code, language, problem.id]);
 
   useEffect(() => {
     const updateHeight = () => {
@@ -160,6 +212,19 @@ export function CodingProblemClient({ problem }: CodingProblemClientProps) {
     setLanguage(lang);
     setCode(starterCode[lang] ?? "");
     setResult(null);
+    if (solutionRevealedRef.current) {
+      void fetchSolution(lang);
+    }
+  };
+
+  const handleToggleBookmark = async () => {
+    try {
+      const next = await toggleBookmark(problem.id);
+      setBookmarked(next);
+      toast.success(next ? "Bookmarked" : "Bookmark removed");
+    } catch {
+      toast.error("Failed to update bookmark");
+    }
   };
 
   const handleRun = async () => {
@@ -197,17 +262,7 @@ export function CodingProblemClient({ problem }: CodingProblemClientProps) {
     }
   };
 
-  const handleRevealSolution = async () => {
-    setLoadingSolution(true);
-    try {
-      const res = await revealCodingSolution(problem.id);
-      setSolution(res.solution);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Solution unavailable");
-    } finally {
-      setLoadingSolution(false);
-    }
-  };
+  const handleRevealSolution = () => fetchSolution(language);
 
   const handleDownloadPdf = async () => {
     if (!result) return;
@@ -239,7 +294,23 @@ export function CodingProblemClient({ problem }: CodingProblemClientProps) {
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{problem.title}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{problem.title}</h1>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={handleToggleBookmark}
+              aria-label={bookmarked ? "Remove bookmark" : "Bookmark problem"}
+            >
+              <Star
+                className={cn(
+                  "h-4 w-4",
+                  bookmarked ? "fill-amber-400 text-amber-400" : "text-muted-foreground",
+                )}
+              />
+            </Button>
+          </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Badge variant="outline">{problem.difficulty.toLowerCase()}</Badge>
             <Badge variant="secondary">{problem.topic}</Badge>
@@ -314,18 +385,23 @@ export function CodingProblemClient({ problem }: CodingProblemClientProps) {
 
         <div className="order-2 space-y-3 lg:order-none">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <Select value={language} onValueChange={handleLanguageChange}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CODING_LANGUAGES.map((l) => (
-                  <SelectItem key={l.id} value={l.id}>
-                    {l.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select value={language} onValueChange={handleLanguageChange}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CODING_LANGUAGES.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {draftSaved && (
+                <span className="text-xs text-muted-foreground">Draft saved</span>
+              )}
+            </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
