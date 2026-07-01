@@ -1,8 +1,20 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "prisma generate && prisma migrate deploy && next build",
+  "installCommand": "npm ci",
+  "framework": "nextjs",
   "crons": [
     {
       "path": "/api/cron/resume-worker",
       "schedule": "*/2 * * * *"
     }
-  ]
+  ],
+  "functions": {
+    "app/api/cron/resume-worker/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/coach/stream/route.ts": {
+      "maxDuration": 60
+    }
+  }
 }

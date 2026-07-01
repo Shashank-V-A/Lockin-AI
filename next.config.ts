@@ -2,13 +2,23 @@ import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV === "development";
 
+function pistonConnectOrigin(): string {
+  const url = process.env.PISTON_API_URL;
+  if (!url) return "https://emkc.org";
+  try {
+    return new URL(url).origin;
+  } catch {
+    return "";
+  }
+}
+
 const baseCsp = [
   "default-src 'self'",
   "worker-src 'self' blob:",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://lh3.googleusercontent.com https://utfs.io https://*.ufs.sh",
   "font-src 'self' data:",
-  "connect-src 'self' https://api.groq.com https://uploadthing.com https://*.uploadthing.com https://utfs.io https://*.ufs.sh https://emkc.org",
+  `connect-src 'self' https://api.groq.com https://uploadthing.com https://*.uploadthing.com https://utfs.io https://*.ufs.sh ${pistonConnectOrigin()}`.trim(),
   "frame-ancestors 'none'",
 ];
 
@@ -38,7 +48,7 @@ const codingSecurityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  output: process.env.DOCKER_BUILD === "true" ? "standalone" : undefined,
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "lh3.googleusercontent.com" },

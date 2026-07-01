@@ -8,6 +8,9 @@ import { streamChat } from "@/lib/groq";
 import { logger, logAiUsage } from "@/lib/logger";
 import { COACH_CONTEXT_LIMIT } from "@/lib/coach-config";
 
+export const maxDuration = 60;
+export const runtime = "nodejs";
+
 /** Streams AI Coach responses via SSE. */
 export async function POST(request: Request) {
   const requestId = request.headers.get("x-request-id") ?? undefined;

@@ -1,0 +1,10 @@
+.piston-cli
+node_modules
+.git
+e2e
+playwright-report
+test-results
+coverage
+.env
+.env.*
+!.env.example

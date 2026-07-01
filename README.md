@@ -148,11 +148,75 @@ npm run test:e2e   # Playwright (starts dev server if not running)
 
 ## Deploy to Vercel
 
-1. Push to GitHub
-2. Import project in Vercel
-3. Add environment variables
-4. Connect Neon PostgreSQL via Vercel Marketplace
-5. Deploy
+Repository: [github.com/Shashank-V-A/Lockin-AI](https://github.com/Shashank-V-A/Lockin-AI)
+
+### 1. Push to GitHub
+
+```bash
+git add .
+git commit -m "Prepare for Vercel deployment"
+git push origin main
+```
+
+### 2. Import in Vercel
+
+1. Go to [vercel.com/new](https://vercel.com/new) → Import **Shashank-V-A/Lockin-AI**
+2. Framework preset: **Next.js** (auto-detected)
+3. Build settings are in `vercel.json` (`prisma migrate deploy` runs on each deploy)
+
+### 3. Environment variables (Production)
+
+Set these in **Vercel → Project → Settings → Environment Variables**:
+
+| Variable | Required | Notes |
+|----------|----------|-------|
+| `DATABASE_URL` | Yes | Neon **pooled** URL (`-pooler` host), `sslmode=verify-full` |
+| `AUTH_SECRET` | Yes | `openssl rand -base64 32` |
+| `AUTH_URL` | Yes | `https://your-app.vercel.app` (no trailing slash) |
+| `AUTH_GOOGLE_ID` | Yes | Google OAuth client ID |
+| `AUTH_GOOGLE_SECRET` | Yes | Google OAuth client secret |
+| `GROQ_API_KEY` | Yes | Groq API key |
+| `GROQ_MODEL` | Yes | `llama-3.3-70b-versatile` |
+| `UPLOADTHING_TOKEN` | Yes | UploadThing token |
+| `UPSTASH_REDIS_REST_URL` | Yes | Upstash Redis (rate limits + cache) |
+| `UPSTASH_REDIS_REST_TOKEN` | Yes | Upstash Redis token |
+| `CRON_SECRET` | Yes | Random secret; Vercel Cron sends `Authorization: Bearer <value>` |
+| `NEXT_PUBLIC_APP_URL` | Yes | Same as `AUTH_URL` |
+| `NEXT_PUBLIC_APP_NAME` | Yes | `Lockin-AI` |
+| `CODE_RUNNER` | Yes | `piston` |
+| `DISABLE_LOCAL_CODE_EXEC` | Yes | `true` |
+| `PISTON_API_URL` | Yes* | Public URL of a **hosted** Piston instance (`https://host/api/v2`) — not `localhost` |
+
+\* Java/C++/Python/JS coding requires a remote Piston server (Docker on your machine is dev-only).
+
+### 4. Google OAuth (production)
+
+In [Google Cloud Console](https://console.cloud.google.com/) → OAuth client:
+
+- **Authorised JavaScript origins:** `https://your-app.vercel.app`
+- **Redirect URI:** `https://your-app.vercel.app/api/auth/callback/google`
+
+### 5. First deploy extras
+
+After the first successful deploy, seed coding problems (one-time, from your machine):
+
+```bash
+# Point at production DATABASE_URL
+npm run db:seed
+```
+
+### 6. Cron
+
+`vercel.json` runs `/api/cron/resume-worker` every 2 minutes. Requires **Vercel Pro** for sub-daily cron on some plans; Hobby supports cron with limits. `CRON_SECRET` must be set.
+
+### 7. CLI deploy (optional)
+
+```bash
+npm i -g vercel
+vercel login
+vercel link    # link to Shashank-V-A/Lockin-AI
+vercel --prod
+```
 
 ## License
 
