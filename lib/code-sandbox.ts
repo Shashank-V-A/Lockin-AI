@@ -12,6 +12,23 @@ const PISTON_URL = process.env.PISTON_API_URL ?? PUBLIC_PISTON_URL;
 const JUDGE0_URL = process.env.JUDGE0_API_URL;
 const CODE_RUNNER = process.env.CODE_RUNNER ?? "auto";
 
+function pistonHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const token = process.env.PISTON_API_TOKEN;
+  if (token) headers.Authorization = token;
+  return headers;
+}
+
+async function readPistonHttpError(res: Response): Promise<string> {
+  const fallback = `Piston API error (${res.status})`;
+  try {
+    const body = (await res.json()) as { message?: string };
+    return body.message?.trim() || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 /** Self-hosted Piston uses /api/v2/execute; the public proxy uses /api/v2/piston/execute. */
 function pistonExecuteUrl(baseUrl: string): string {
   const base = baseUrl.replace(/\/$/, "");
@@ -70,6 +87,11 @@ export async function runSandboxTests(params: {
     const result = await executePistonTests(params);
     if (result) return result;
 
+    if (JUDGE0_URL) {
+      const judgeResult = await runJudge0Tests(params);
+      if (judgeResult) return judgeResult;
+    }
+
     return await pistonUnavailableResult(params, params.start);
   }
 
@@ -122,7 +144,7 @@ async function executePistonTests(
     try {
       const res = await fetch(pistonExecuteUrl(baseUrl), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: pistonHeaders(),
         body: JSON.stringify({
           language: pistonLang,
           version: "*",
@@ -133,7 +155,10 @@ async function executePistonTests(
         signal: AbortSignal.timeout(20000),
       });
 
-      if (!res.ok) return null;
+      if (!res.ok) {
+        if (JUDGE0_URL) return null;
+        return compileErrorResult(params.testCases, await readPistonHttpError(res), params.start);
+      }
 
       const data = (await res.json()) as {
         run?: { stdout?: string; stderr?: string; code?: number; message?: string | null };
@@ -269,11 +294,13 @@ async function pistonUnavailableResult(
   params: { language: string; testCases: TestCase[]; start: number },
   start: number,
 ): Promise<ExecutionResult> {
-  let msg =
-    "Code sandbox unavailable. Start Piston with: docker compose up piston -d";
+  let msg = JUDGE0_URL
+    ? "Code execution failed. Piston and Judge0 are both unavailable — try again shortly."
+    : "Code sandbox unavailable. Set JUDGE0_API_URL or run Piston locally: docker compose up piston -d";
 
   try {
     const res = await fetch(pistonRuntimesUrl(PISTON_URL), {
+      headers: pistonHeaders(),
       signal: AbortSignal.timeout(3000),
     });
     if (res.ok) {
@@ -283,16 +310,18 @@ async function pistonUnavailableResult(
           "Piston is running but no language runtimes are installed. Run: npm run piston:setup";
       } else if (!runtimes.some((r) => r.language === PISTON_LANG[params.language])) {
         msg = `Piston is missing the ${params.language} runtime. Run: npm run piston:setup`;
-      } else {
-        msg = "Piston request failed. Check docker logs: docker logs lockin-ai-piston-1";
+      } else if (!JUDGE0_URL) {
+        msg =
+          "Public Piston execute API is restricted. Set JUDGE0_API_URL (e.g. https://ce.judge0.com) or self-host Piston.";
       }
-    } else {
-      msg =
-        "Cannot reach Piston at localhost:2000. Ensure Docker Desktop is running, then: docker compose up piston -d";
+    } else if (!JUDGE0_URL) {
+      msg = await readPistonHttpError(res);
     }
   } catch {
-    msg =
-      "Cannot reach Piston at localhost:2000. Ensure Docker Desktop is running, then: docker compose up piston -d";
+    if (!JUDGE0_URL) {
+      msg =
+        "Cannot reach the code sandbox. For production, set JUDGE0_API_URL=https://ce.judge0.com";
+    }
   }
 
   return compileErrorResult(params.testCases, msg, start);
@@ -314,6 +343,3 @@ function compileErrorResult(testCases: TestCase[], error: string, start: number)
     compileError: error.slice(0, 500),
   };
 }
-
-/** @deprecated All supported languages run via sandbox or local runner. */
-export const AI_REVIEW_ONLY_LANGUAGES = new Set<string>();

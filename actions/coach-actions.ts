@@ -4,16 +4,7 @@ import { requireUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { coachMessageSchema } from "@/lib/validations";
-import { enforceRateLimit } from "@/lib/rate-limit";
-import { generateCoachResponse } from "@/services/ai-service";
-import { getCoachSuggestedPrompts } from "@/services/coach-service";
-import { COACH_PAGE_SIZE, COACH_CONTEXT_LIMIT } from "@/lib/coach-config";
-
-/** Gets personalized coach suggested prompts from analytics weak areas. */
-export async function fetchCoachSuggestedPrompts() {
-  const userId = await requireUserId();
-  return getCoachSuggestedPrompts(userId);
-}
+import { COACH_PAGE_SIZE } from "@/lib/coach-config";
 
 /** Loads older coach messages before a cursor timestamp. */
 export async function loadMoreCoachMessages(beforeIso: string) {
@@ -29,36 +20,6 @@ export async function loadMoreCoachMessages(beforeIso: string) {
   });
 
   return messages.reverse();
-}
-
-/** Sends a message to the AI coach (non-streaming fallback). */
-export async function sendCoachMessage(content: string) {
-  const userId = await requireUserId();
-  await enforceRateLimit(userId, "coach");
-  const message = coachMessageSchema.parse(content);
-
-  await prisma.coachMessage.create({
-    data: { userId, role: "user", content: message },
-  });
-
-  const history = await prisma.coachMessage.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    take: COACH_CONTEXT_LIMIT,
-    select: { role: true, content: true },
-  });
-
-  const response = await generateCoachResponse(
-    userId,
-    history.reverse().map((m) => ({ role: m.role, content: m.content })),
-  );
-
-  const assistantMessage = await prisma.coachMessage.create({
-    data: { userId, role: "assistant", content: response },
-  });
-
-  revalidatePath("/coach");
-  return assistantMessage;
 }
 
 /** Clears coach conversation history. */

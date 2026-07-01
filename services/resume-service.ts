@@ -99,11 +99,6 @@ export async function getUserResumesPageData(userId: string) {
   };
 }
 
-/** Gets all resumes for a user. */
-export async function getUserResumes(userId: string) {
-  return getUserResumeSummaries(userId);
-}
-
 /** Gets a single resume by ID. */
 export async function getResumeById(userId: string, resumeId: string) {
   return prisma.resume.findFirst({

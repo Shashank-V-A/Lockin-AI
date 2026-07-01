@@ -67,41 +67,6 @@ export async function generateJSON<T>(
   throw lastError ?? new Error("JSON generation failed");
 }
 
-/** Generates plain text from Groq chat completion. */
-export async function generateText(
-  systemPrompt: string,
-  userPrompt: string,
-): Promise<string> {
-  const response = await getGroq().chat.completions.create({
-    model: getModel(),
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    temperature: 0.6,
-  });
-
-  return response.choices[0]?.message?.content ?? "";
-}
-
-/** Multi-turn chat completion with proper message roles. */
-export async function generateChat(
-  systemPrompt: string,
-  messages: { role: "user" | "assistant"; content: string }[],
-): Promise<string> {
-  const response = await getGroq().chat.completions.create({
-    model: getModel(),
-    messages: [
-      { role: "system", content: systemPrompt },
-      ...messages.map((m) => ({ role: m.role, content: m.content })),
-    ],
-    temperature: 0.5,
-    max_tokens: 4096,
-  });
-
-  return response.choices[0]?.message?.content ?? "";
-}
-
 /** Streaming chat completion for coach. */
 export async function streamChat(
   systemPrompt: string,

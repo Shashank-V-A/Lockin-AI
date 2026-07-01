@@ -1,4 +1,4 @@
-import { generateJSON, generateChat } from "@/lib/groq";
+import { generateJSON } from "@/lib/groq";
 import {
   resumeAnalysisSchema,
   answerEvaluationSchema,
@@ -186,21 +186,4 @@ export async function analyzeCodingSubmission(params: {
     `Problem: ${params.problem}\nLanguage: ${params.language}\nAll tests passed: ${params.passed}${testSummary}\nCode:\n${params.code}`,
     codingFeedbackSchema,
   );
-}
-
-/** Generates a coach chat response with conversation history. */
-export async function generateCoachResponse(
-  userId: string,
-  messages: { role: string; content: string }[],
-): Promise<string> {
-  const systemPrompt = await buildCoachSystemPrompt(userId);
-  const chatMessages = messages
-    .filter((m) => m.role === "user" || m.role === "assistant")
-    .slice(-16)
-    .map((m) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content,
-    }));
-
-  return generateChat(systemPrompt, chatMessages);
 }

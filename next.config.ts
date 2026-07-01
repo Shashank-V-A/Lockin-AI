@@ -56,14 +56,13 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "*.ufs.sh" },
     ],
   },
-  serverExternalPackages: ["pdf-parse"],
+  serverExternalPackages: ["unpdf"],
   transpilePackages: ["monaco-editor"],
   experimental: {
     optimizePackageImports: [
       "lucide-react",
       "recharts",
       "date-fns",
-      "framer-motion",
       "@radix-ui/react-slot",
     ],
   },

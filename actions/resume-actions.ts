@@ -5,11 +5,9 @@ import { requireUserId } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import {
   createResumeRecord,
-  getUserResumes,
   getUserResumesPageData,
   getResumeById,
   deleteResume,
-  exportUserData,
 } from "@/services/resume-service";
 import type { ResumeAnalysis } from "@/types/resume";
 import { claimAndProcessResume } from "@/services/resume-worker";
@@ -52,25 +50,6 @@ export async function saveAndAnalyzeResume(params: {
   });
 }
 
-/** Polls resume processing status. */
-export async function fetchResumeStatus(resumeId: string) {
-  const userId = await requireUserId();
-  const resume = await getResumeById(userId, resumeId);
-  if (!resume) throw new Error("Resume not found");
-  return {
-    id: resume.id,
-    status: resume.status,
-    atsScore: resume.atsScore,
-    fileName: resume.fileName,
-  };
-}
-
-/** Gets all resumes for the current user. */
-export async function fetchUserResumes() {
-  const userId = await requireUserId();
-  return getUserResumes(userId);
-}
-
 /** Gets resume list and preloads analysis for the latest completed resume. */
 export async function fetchResumePageData() {
   const userId = await requireUserId();
@@ -85,12 +64,6 @@ export async function fetchResumeAnalysis(resumeId: string) {
   return record.analysis as unknown as ResumeAnalysis;
 }
 
-/** Gets a single resume for the current user. */
-export async function fetchResume(resumeId: string) {
-  const userId = await requireUserId();
-  return getResumeById(userId, resumeId);
-}
-
 /** Deletes a resume. */
 export async function removeResume(resumeId: string) {
   const userId = await requireUserId();
@@ -99,10 +72,4 @@ export async function removeResume(resumeId: string) {
   await invalidateDashboardCache(userId);
   revalidatePath("/resume");
   revalidatePath("/dashboard");
-}
-
-/** Exports user data as JSON. */
-export async function exportAccountData() {
-  const userId = await requireUserId();
-  return exportUserData(userId);
 }

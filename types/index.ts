@@ -1,12 +1,7 @@
-import type { ResumeAnalysis } from "@/types/resume";
-import type { InterviewReport } from "@/types/interview";
-import type { CodingFeedback } from "@/types/coding";
-
 export type { ResumeAnalysis } from "@/types/resume";
 export type { InterviewReport, AnswerEvaluation } from "@/types/interview";
 export type { CodingFeedback } from "@/types/coding";
 
-export type { DashboardPageData } from "@/types/dashboard";
 export interface DashboardStats {
   readinessScore: number;
   resumeScore: number;
@@ -34,12 +29,3 @@ export interface AnalyticsData {
     change: number;
   }[];
 }
-
-export interface CoachMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  createdAt: Date;
-}
-
-export type ReportData = ResumeAnalysis | InterviewReport | CodingFeedback;

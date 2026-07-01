@@ -9,8 +9,6 @@ import { getLatestResumeForUser } from "@/services/resume-service";
 import type { AnswerEvaluation, InterviewReport } from "@/types/interview";
 import { toInterviewAnswerResult, type InterviewAnswerResult } from "@/lib/interview-payload";
 
-export type { InterviewAnswerResult };
-
 function roundEvaluation(evaluation: AnswerEvaluation) {
   return {
     technicalAccuracy: Math.round(evaluation.technicalAccuracy),
