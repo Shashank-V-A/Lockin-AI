@@ -213,6 +213,7 @@ export function CoachChat({
   return (
     <div className="flex h-[calc(100dvh-7rem)] flex-col gap-4 overflow-hidden">
       <PageHeader
+        eyebrow="Coach"
         title="AI Coach"
         description="Interview prep, coding help, system design, and career advice — with structured answers."
         className="shrink-0"

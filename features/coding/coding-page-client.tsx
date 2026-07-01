@@ -35,15 +35,15 @@ type DifficultyFilter = "ALL" | "EASY" | "MEDIUM" | "HARD";
 type StatusFilter = "ALL" | "SOLVED" | "ATTEMPTED" | "UNSOLVED" | "BOOKMARKED";
 
 const DIFFICULTY_STYLE: Record<string, string> = {
-  EASY: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-  MEDIUM: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
-  HARD: "bg-red-500/10 text-red-600 dark:text-red-400",
+  EASY: "bg-[color-mix(in_oklab,var(--success)_14%,transparent)] text-[var(--success)]",
+  MEDIUM: "bg-[color-mix(in_oklab,var(--warning)_14%,transparent)] text-[var(--warning)]",
+  HARD: "bg-destructive/10 text-destructive",
 };
 
 const DIFFICULTY_BORDER: Record<string, string> = {
-  EASY: "border-l-emerald-500",
-  MEDIUM: "border-l-amber-500",
-  HARD: "border-l-red-500",
+  EASY: "border-l-[var(--success)]",
+  MEDIUM: "border-l-[var(--warning)]",
+  HARD: "border-l-destructive",
 };
 
 /** Redesigned coding problems page with scorecard, filters, and search. */
@@ -115,14 +115,14 @@ export function CodingPageClient({ problems, progress, bookmarkIds }: CodingPage
             label="Solved"
             value={progress.solved}
             sub={`${progress.unsolved} remaining`}
-            accent="text-emerald-600 dark:text-emerald-400"
+            accent="text-[var(--success)]"
           />
           <StatCard
             icon={Target}
             label="Attempted"
             value={progress.attempted}
             sub={`${Math.max(0, progress.attempted - progress.solved)} in progress`}
-            accent="text-amber-600 dark:text-amber-400"
+            accent="text-[var(--warning)]"
           />
           <StatCard
             icon={Circle}
@@ -136,9 +136,9 @@ export function CodingPageClient({ problems, progress, bookmarkIds }: CodingPage
               By difficulty
             </p>
             <div className="mt-3 space-y-2 text-xs">
-              <DifficultyBar label="Easy" count={progress.byDifficulty.easy} total={problems.filter((p) => p.difficulty === "EASY").length} color="bg-emerald-500" />
-              <DifficultyBar label="Medium" count={progress.byDifficulty.medium} total={problems.filter((p) => p.difficulty === "MEDIUM").length} color="bg-amber-500" />
-              <DifficultyBar label="Hard" count={progress.byDifficulty.hard} total={problems.filter((p) => p.difficulty === "HARD").length} color="bg-red-500" />
+              <DifficultyBar label="Easy" count={progress.byDifficulty.easy} total={problems.filter((p) => p.difficulty === "EASY").length} color="bg-[var(--success)]" />
+              <DifficultyBar label="Medium" count={progress.byDifficulty.medium} total={problems.filter((p) => p.difficulty === "MEDIUM").length} color="bg-[var(--warning)]" />
+              <DifficultyBar label="Hard" count={progress.byDifficulty.hard} total={problems.filter((p) => p.difficulty === "HARD").length} color="bg-destructive" />
             </div>
           </div>
         </div>

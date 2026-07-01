@@ -19,6 +19,7 @@ export default async function MockInterviewPage() {
         <MockInterviewNotice />
       </Suspense>
       <PageHeader
+        eyebrow="Interviews"
         title="Mock Interview"
         description="Practice company-specific interviews with structured AI evaluation."
       />

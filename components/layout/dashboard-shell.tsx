@@ -16,16 +16,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const collapsed = useSidebarStore((s) => s.collapsed);
 
   return (
-    <div className="min-h-screen bg-background page-grid">
+    <div className="min-h-screen page-canvas">
       <Sidebar />
       <div
         className={cn(
           "min-h-screen transition-[margin] duration-200 ease-out",
-          collapsed ? "md:ml-[68px]" : "md:ml-[240px]",
+          collapsed ? "md:ml-[72px]" : "md:ml-[248px]",
         )}
       >
         <Navbar />
-        <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
+        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">{children}</main>
       </div>
       <CommandPalette />
     </div>

@@ -8,8 +8,8 @@ import { Logo } from "@/components/layout/logo";
 /** Landing page navigation header. */
 export function LandingNavbar() {
   return (
-    <header className="fixed top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
+    <header className="fixed top-0 z-50 w-full border-b border-border/80 bg-background/85 backdrop-blur-md">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
         <Link href="/">
           <Logo />
         </Link>
@@ -31,7 +31,8 @@ export function LandingNavbar() {
 
         <Button
           size="sm"
-          className="h-8 bg-accent text-accent-foreground hover:bg-accent/90"
+          variant="accent"
+          className="h-8"
           onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
         >
           Continue with Google

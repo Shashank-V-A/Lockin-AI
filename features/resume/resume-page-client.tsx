@@ -198,6 +198,7 @@ export function ResumePageClient({
   return (
     <div className="space-y-8">
       <PageHeader
+        eyebrow="Resume"
         title="Resume Analyzer"
         description="Upload your PDF resume for ATS scoring and actionable feedback."
       />

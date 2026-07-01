@@ -32,7 +32,7 @@ export function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
   const pathname = usePathname();
 
   return (
-    <nav className="flex-1 space-y-0.5 p-2.5">
+    <nav className="flex-1 space-y-0.5 p-2">
       {NAV_ITEMS.map((item) => {
         const Icon = ICON_MAP[item.icon as keyof typeof ICON_MAP];
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -44,17 +44,20 @@ export function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
             onClick={onNavigate}
             title={collapsed ? item.label : undefined}
             className={cn(
-              "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors duration-150",
+              "flex items-center gap-3 rounded-md px-3 py-2 text-[13px] font-medium transition-colors duration-150",
               active
-                ? "bg-muted text-foreground"
-                : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+                ? "bg-sidebar-accent text-foreground"
+                : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground",
               collapsed && "justify-center px-2",
             )}
           >
-            {active && (
-              <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-accent" />
-            )}
-            <Icon className={cn("h-4 w-4 shrink-0", active && item.icon !== "AiCoach" && "text-accent")} />
+            <Icon
+              className={cn(
+                "h-4 w-4 shrink-0",
+                active && item.icon !== "AiCoach" && "text-accent",
+              )}
+              strokeWidth={active ? 2 : 1.75}
+            />
             {!collapsed && <span>{item.label}</span>}
           </Link>
         );

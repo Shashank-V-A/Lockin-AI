@@ -63,12 +63,13 @@ export function SettingsContent() {
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <PageHeader
+        eyebrow="Account"
         title="Settings"
         description="Manage your account, data, and appearance preferences."
       />
 
       <div className="surface-card p-5">
-        <h2 className="text-sm font-semibold tracking-tight">Profile</h2>
+        <h2 className="font-heading text-sm font-semibold tracking-tight">Profile</h2>
         <div className="mt-4 flex items-center gap-4">
           <Avatar className="h-11 w-11 ring-2 ring-border">
             <AvatarImage src={session?.user?.image ?? undefined} />

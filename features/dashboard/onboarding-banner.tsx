@@ -28,15 +28,15 @@ export function OnboardingBanner({ stats }: OnboardingBannerProps) {
   ];
 
   return (
-    <div className="surface-card border-accent/20 bg-accent/5 p-5">
-      <h2 className="text-sm font-semibold tracking-tight">Welcome — here&apos;s how to get started</h2>
+    <div className="surface-card border-accent/25 bg-accent/[0.04] p-5">
+      <h2 className="font-heading text-sm font-semibold">Welcome — start here</h2>
       <p className="mt-1 text-xs text-muted-foreground">
         Complete these steps to build your interview readiness score.
       </p>
       <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {steps.map((step) => (
           <Link key={step.href} href={step.href}>
-            <div className="group flex items-center gap-3 rounded-lg border border-border bg-background p-3 transition-colors hover:border-accent/30">
+            <div className="group flex items-center gap-3 rounded-md border border-border bg-background p-3 transition-colors hover:border-accent/30">
               {"isCoach" in step ? (
                 <AiCoachIcon className="h-4 w-4 shrink-0" />
               ) : (

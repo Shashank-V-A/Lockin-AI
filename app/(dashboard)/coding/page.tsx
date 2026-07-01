@@ -11,6 +11,7 @@ export default async function CodingPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        eyebrow="Practice"
         title="Coding Assessment"
         description="Practice 50+ interview problems with a built-in editor, test execution, and AI feedback."
       />

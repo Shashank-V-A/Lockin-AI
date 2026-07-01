@@ -19,7 +19,7 @@ export async function DashboardStatsSection() {
       <div className="grid gap-4 lg:grid-cols-4">
         <div className="surface-card flex flex-col items-center px-6 py-8 lg:col-span-1">
           <ProgressRing value={stats.readinessScore} label="Score" />
-          <p className="mt-5 text-sm font-medium">Interview Readiness</p>
+          <p className="mt-5 font-heading text-sm font-medium">Interview Readiness</p>
           <p className="text-xs text-muted-foreground">Combined across all modules</p>
         </div>
 
@@ -43,7 +43,7 @@ export async function DashboardStatsSection() {
 
       <div className="surface-card">
         <div className="border-b border-border px-5 py-4">
-          <h2 className="text-sm font-semibold tracking-tight">Recent Interviews</h2>
+          <h2 className="font-heading text-sm font-semibold tracking-tight">Recent Interviews</h2>
         </div>
         <div className="p-2">
           {stats.recentInterviews.length === 0 ? (

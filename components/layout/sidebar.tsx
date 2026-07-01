@@ -15,8 +15,8 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 hidden h-screen flex-col border-r border-sidebar-border bg-sidebar/95 backdrop-blur-xl transition-all duration-200 ease-out md:flex",
-        collapsed ? "w-[68px]" : "w-[240px]",
+        "fixed left-0 top-0 z-40 hidden h-screen flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 ease-out md:flex",
+        collapsed ? "w-[72px]" : "w-[248px]",
       )}
     >
       <div className="flex h-14 items-center border-b border-sidebar-border px-4">
@@ -27,13 +27,13 @@ export function Sidebar() {
 
       <SidebarNav collapsed={collapsed} />
 
-      <div className="border-t border-sidebar-border p-2.5">
+      <div className="mt-auto border-t border-sidebar-border p-2">
         <Button
           variant="ghost"
           size="sm"
           onClick={toggle}
           className={cn(
-            "h-8 w-full justify-start text-muted-foreground hover:text-foreground",
+            "h-8 w-full justify-start text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
             collapsed && "justify-center px-0",
           )}
         >

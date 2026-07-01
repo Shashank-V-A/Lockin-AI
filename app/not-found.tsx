@@ -5,10 +5,10 @@ import { Logo } from "@/components/layout/logo";
 /** Custom 404 page. */
 export default function NotFound() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6">
+    <div className="page-canvas flex min-h-screen flex-col items-center justify-center px-6">
       <Logo className="mb-10" />
-      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">404</p>
-      <h1 className="mt-2 text-2xl font-semibold tracking-tight">Page not found</h1>
+      <p className="section-eyebrow">404</p>
+      <h1 className="mt-2 font-heading text-2xl font-semibold tracking-tight">Page not found</h1>
       <p className="mt-2 max-w-sm text-center text-sm text-muted-foreground">
         The page you&apos;re looking for doesn&apos;t exist or has been moved.
       </p>

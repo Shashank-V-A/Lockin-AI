@@ -10,7 +10,7 @@ import { AuthErrorToast } from "@/components/landing/auth-error-toast";
 /** Landing page with marketing sections. */
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen page-canvas">
       <StructuredData />
       <Suspense fallback={null}>
         <AuthErrorToast />
